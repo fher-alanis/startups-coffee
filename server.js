@@ -1,25 +1,19 @@
-const http = require('http');
+const express = require('express');
 const https = require('https');
-const fs = require('fs');
 const path = require('path');
-const url = require('url');
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
+const app = express();
 const PORT = process.env.PORT || 8080;
+
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
 const AZURE_OPENAI_KEY = process.env.AZURE_OPENAI_KEY;
 const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+const JWT_SECRET = process.env.JWT_SECRET || 'startups-coffee-secret-2026';
 
-const SYSTEM_MESSAGE = {
-  role: 'system',
-  content: `Eres el asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
-Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
-Eres amigable, conciso y útil. Puedes hablar sobre herramientas SaaS, recursos para startups,
-estrategias de emprendimiento y todo lo relacionado con el ecosistema startup.
-Responde siempre en el mismo idioma que el usuario.`
-};
-
-// DB
+// ── DB ──────────────────────────────────────────────────────────────────────
 const db = new Pool({
   host: process.env.PG_HOST,
   user: process.env.PG_USER,
@@ -30,6 +24,31 @@ const db = new Pool({
 });
 
 async function initDB() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS codes (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      type TEXT NOT NULL CHECK (type IN ('referido', 'perk')),
+      category TEXT NOT NULL,
+      company TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      code TEXT NOT NULL,
+      url TEXT,
+      discount TEXT,
+      approved BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
   await db.query(`
     CREATE TABLE IF NOT EXISTS chat_logs (
       id SERIAL PRIMARY KEY,
@@ -42,29 +61,137 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  // Seed some sample approved codes for demo
+  const { rows } = await db.query('SELECT COUNT(*) FROM codes');
+  if (parseInt(rows[0].count) === 0) {
+    // Insert demo user
+    const hash = await bcrypt.hash('demo1234', 10);
+    const userRes = await db.query(
+      "INSERT INTO users (email, password_hash, name) VALUES ('demo@startups.coffee', $1, 'Demo User') ON CONFLICT DO NOTHING RETURNING id",
+      [hash]
+    );
+    if (userRes.rows.length > 0) {
+      const uid = userRes.rows[0].id;
+      const demoData = [
+        ['referido', 'ia-automatizacion', 'Make', 'Make.com — 1 mes gratis Pro', 'Automatiza flujos entre apps sin código', 'STARTUPS-MAKE24', 'https://make.com', '1 mes Pro gratis'],
+        ['referido', 'cloud-infra', 'Hetzner', 'Hetzner — €20 de crédito', 'VPS europeo de alto rendimiento y bajo costo', 'HET-20EUR', 'https://hetzner.com', '€20 crédito'],
+        ['referido', 'diseno', 'Canva', 'Canva Pro — 45 días gratis', 'Diseño profesional para tu marca', 'CANVA-PRO45', 'https://canva.com', '45 días Pro'],
+        ['referido', 'desarrollo-nocode', 'Bubble', 'Bubble — 25% off primer mes', 'Construye apps sin código', 'BUBBLE25', 'https://bubble.io', '25% descuento'],
+        ['referido', 'finanzas', 'Brex', 'Brex — $250 de crédito', 'Tarjeta corporativa para startups', 'BREX250', 'https://brex.com', '$250 crédito'],
+        ['perk', 'ia-automatizacion', 'OpenAI', 'OpenAI API — $150 crédito para startups', 'Acceso a GPT-4 y más para tu producto', 'OPENAI-STARTUP', 'https://openai.com/startup', '$150 crédito API'],
+        ['perk', 'cloud-infra', 'AWS', 'AWS Activate — hasta $100k créditos', 'Créditos en la nube para startups elegibles', 'AWS-ACTIVATE', 'https://aws.amazon.com/activate', 'Hasta $100k'],
+        ['perk', 'rrhh', 'Notion', 'Notion for Startups — 6 meses gratis', 'Wiki + proyectos + docs en un solo lugar', 'NOTION-STARTUP6', 'https://notion.so/startups', '6 meses Plus gratis'],
+        ['perk', 'marketing', 'HubSpot', 'HubSpot para Startups — 90% off', 'CRM + marketing + ventas todo en uno', 'HUBSPOT-STARTUP', 'https://hubspot.com/startups', '90% primer año'],
+        ['referido', 'imagen-video', 'Descript', 'Descript — 1 mes Creator gratis', 'Edición de video y podcast con IA', 'DESC-CREATOR1', 'https://descript.com', '1 mes Creator'],
+      ];
+      for (const [type, cat, company, title, desc, code, url, discount] of demoData) {
+        await db.query(
+          'INSERT INTO codes (user_id, type, category, company, title, description, code, url, discount, approved) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true)',
+          [uid, type, cat, company, title, desc, code, url, discount]
+        );
+      }
+    }
+  }
   console.log('DB ready');
 }
 
-async function saveLog(sessionId, userMsg, assistantMsg, usage) {
+// ── Middleware ───────────────────────────────────────────────────────────────
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+function authMiddleware(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header) return res.status(401).json({ error: 'No autorizado' });
   try {
-    await db.query(
-      `INSERT INTO chat_logs (session_id, user_message, assistant_message, input_tokens, output_tokens, total_tokens)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [sessionId, userMsg, assistantMsg, usage.prompt_tokens || 0, usage.completion_tokens || 0, usage.total_tokens || 0]
-    );
-  } catch (err) {
-    console.error('DB log error:', err.message);
+    req.user = jwt.verify(header.split(' ')[1], JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Token inválido' });
   }
 }
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-}
+// ── Auth ─────────────────────────────────────────────────────────────────────
+app.post('/api/auth/register', async (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password || !name) return res.status(400).json({ error: 'Datos incompletos' });
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await db.query(
+      'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+      [email.toLowerCase(), hash, name]
+    );
+    const token = jwt.sign({ id: rows[0].id, email: rows[0].email, name: rows[0].name }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Email ya registrado' });
+    res.status(500).json({ error: 'Error al registrar' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Datos incompletos' });
+  try {
+    const { rows } = await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    const valid = await bcrypt.compare(password, rows[0].password_hash);
+    if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    const token = jwt.sign({ id: rows[0].id, email: rows[0].email, name: rows[0].name }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: rows[0].id, email: rows[0].email, name: rows[0].name } });
+  } catch {
+    res.status(500).json({ error: 'Error al autenticar' });
+  }
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => res.json({ user: req.user }));
+
+// ── Codes ────────────────────────────────────────────────────────────────────
+app.get('/api/codes', async (req, res) => {
+  const { type, category, search } = req.query;
+  let q = 'SELECT c.*, u.name as author FROM codes c JOIN users u ON c.user_id = u.id WHERE c.approved = true';
+  const params = [];
+  if (type) { params.push(type); q += ` AND c.type = $${params.length}`; }
+  if (category && category !== 'all') { params.push(category); q += ` AND c.category = $${params.length}`; }
+  if (search) {
+    params.push(`%${search}%`);
+    q += ` AND (c.company ILIKE $${params.length} OR c.title ILIKE $${params.length} OR c.description ILIKE $${params.length})`;
+  }
+  q += ' ORDER BY c.created_at DESC';
+  try {
+    const { rows } = await db.query(q, params);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener códigos' });
+  }
+});
+
+app.post('/api/codes', authMiddleware, async (req, res) => {
+  const { type, category, company, title, description, code, url, discount } = req.body;
+  if (!type || !category || !company || !title || !code) {
+    return res.status(400).json({ error: 'Faltan campos requeridos' });
+  }
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO codes (user_id, type, category, company, title, description, code, url, discount, approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false) RETURNING *`,
+      [req.user.id, type, category, company, title, description, code, url, discount]
+    );
+    res.status(201).json({ ...rows[0], message: 'Código enviado, pendiente de aprobación' });
+  } catch {
+    res.status(500).json({ error: 'Error al guardar código' });
+  }
+});
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+const SYSTEM_MESSAGE = {
+  role: 'system',
+  content: `Eres el asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
+Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
+Eres amigable, conciso y útil. Puedes hablar sobre herramientas SaaS, recursos para startups,
+estrategias de emprendimiento y todo lo relacionado con el ecosistema startup.
+Responde siempre en el mismo idioma que el usuario.`
+};
 
 function streamOpenAI(messages, onChunk, onDone, onError) {
   const endpoint = new URL(
@@ -72,13 +199,9 @@ function streamOpenAI(messages, onChunk, onDone, onError) {
     AZURE_OPENAI_ENDPOINT
   );
   const payload = JSON.stringify({
-    messages,
-    max_tokens: 800,
-    temperature: 0.7,
-    stream: true,
+    messages, max_tokens: 800, temperature: 0.7, stream: true,
     stream_options: { include_usage: true }
   });
-
   const options = {
     hostname: endpoint.hostname,
     path: endpoint.pathname + endpoint.search,
@@ -89,11 +212,8 @@ function streamOpenAI(messages, onChunk, onDone, onError) {
       'Content-Length': Buffer.byteLength(payload)
     }
   };
-
   const req = https.request(options, res => {
-    let buffer = '';
-    let usage = {};
-    let done = false;
+    let buffer = '', usage = {}, done = false;
     res.on('data', chunk => {
       buffer += chunk.toString();
       const lines = buffer.split('\n');
@@ -112,67 +232,43 @@ function streamOpenAI(messages, onChunk, onDone, onError) {
     });
     res.on('end', () => { if (!done) { done = true; onDone(usage); } });
   });
-
   req.on('error', onError);
   req.write(payload);
   req.end();
 }
 
-http.createServer(async (req, res) => {
-  const parsed = url.parse(req.url);
-
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204); res.end(); return;
-  }
-
-  if (parsed.pathname === '/api/chat' && req.method === 'POST') {
-    try {
-      const body = await readBody(req);
-      const { messages, sessionId } = JSON.parse(body);
-      const userMsg = messages[messages.length - 1]?.content || '';
-
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no'
-      });
-
-      let fullReply = '';
-
-      streamOpenAI(
-        [SYSTEM_MESSAGE, ...messages],
-        token => {
-          fullReply += token;
-          res.write(`data: ${JSON.stringify({ token })}\n\n`);
-        },
-        usage => {
-          res.write('data: [DONE]\n\n');
-          res.end();
-          saveLog(sessionId || 'anonymous', userMsg, fullReply, usage);
-        },
-        err => { console.error('Stream error:', err); res.end(); }
-      );
-    } catch (err) {
-      console.error('Chat error:', err);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Error interno' }));
-    }
-    return;
-  }
-
-  const filePath = path.join(__dirname, 'index.html');
-  fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(500); res.end('Error'); return; }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(data);
+app.post('/api/chat', (req, res) => {
+  const { messages, sessionId } = req.body;
+  const userMsg = messages?.[messages.length - 1]?.content || '';
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
   });
+  let fullReply = '';
+  streamOpenAI(
+    [SYSTEM_MESSAGE, ...messages],
+    token => { fullReply += token; res.write(`data: ${JSON.stringify({ token })}\n\n`); },
+    usage => {
+      res.write('data: [DONE]\n\n');
+      res.end();
+      db.query(
+        `INSERT INTO chat_logs (session_id, user_message, assistant_message, input_tokens, output_tokens, total_tokens)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [sessionId || 'anonymous', userMsg, fullReply, usage.prompt_tokens || 0, usage.completion_tokens || 0, usage.total_tokens || 0]
+      ).catch(err => console.error('DB log error:', err.message));
+    },
+    err => { console.error('Stream error:', err); res.end(); }
+  );
+});
 
-}).listen(PORT, () => {
+// ── SPA fallback ─────────────────────────────────────────────────────────────
+app.get('/{*path}', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
   initDB().catch(err => console.error('DB init failed (non-fatal):', err.message));
 });
