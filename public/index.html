@@ -390,6 +390,26 @@
     #chat-send:disabled { opacity: 0.35; cursor: default; }
     #chat-send svg { width: 16px; height: 16px; fill: #fff; }
 
+    #voice-btn {
+      width: 38px; height: 38px; border-radius: var(--radius-sm);
+      background: #22c55e; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    #voice-btn:hover { background: #16a34a; }
+    #voice-btn.active { background: #ef4444; animation: pulse-call 1.5s ease-in-out infinite; }
+    #voice-btn svg { width: 16px; height: 16px; fill: #fff; }
+    @keyframes pulse-call {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.45); }
+      50% { box-shadow: 0 0 0 7px rgba(239,68,68,0); }
+    }
+    .msg.voice-status {
+      align-self: center; background: transparent;
+      color: var(--text-dim); font-size: 0.73rem; font-style: italic;
+      border: 1px dashed var(--border); padding: 3px 10px;
+      border-radius: 100px; max-width: 100%;
+    }
+
     @media (max-width: 900px) {
       .sidebar { display: none; }
       .layout { padding: 0 16px; }
@@ -818,6 +838,9 @@
     <button id="chat-send">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
     </button>
+    <button id="voice-btn" title="Llamada de voz">
+      <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+    </button>
   </div>
 </div>
 
@@ -1217,6 +1240,145 @@ async function sendChat() {
     chatHistory.push({ role: 'assistant', content: fullReply });
   } catch { botDiv.textContent = 'Error de conexión. Intenta de nuevo.'; }
   chatSend.disabled = false; chatInput.focus();
+}
+
+// ── Voice Call ────────────────────────────────────────────────────────────────
+const voiceBtn = document.getElementById('voice-btn');
+let voiceWs = null, micStream = null, audioCtx = null, scriptProc = null;
+let playbackCtx = null, nextPlayTime = 0, callActive = false;
+let currentBotDiv = null, currentBotText = '';
+
+voiceBtn.addEventListener('click', () => { callActive ? stopCall() : startCall(); });
+
+async function startCall() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch {
+    showToast('No se pudo acceder al micrófono', 'error'); return;
+  }
+  callActive = true;
+  voiceBtn.classList.add('active');
+  voiceBtn.title = 'Terminar llamada';
+  if (!chatWin.classList.contains('open')) {
+    chatWin.classList.add('open');
+    resetChat();
+  }
+  appendVoiceStatus('Conectando…');
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  voiceWs = new WebSocket(`${proto}://${location.host}/ws/realtime`);
+
+  voiceWs.onmessage = evt => {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'ready') {
+      appendVoiceStatus('Llamada activa — habla ahora 🎙️');
+      startMicCapture();
+    } else {
+      handleRealtimeEvent(msg);
+    }
+  };
+  voiceWs.onerror = () => { showToast('Error en la llamada', 'error'); stopCall(); };
+  voiceWs.onclose = () => { if (callActive) stopCall(); };
+}
+
+function stopCall() {
+  callActive = false;
+  voiceBtn.classList.remove('active');
+  voiceBtn.title = 'Llamada de voz';
+  if (scriptProc) { scriptProc.disconnect(); scriptProc = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (voiceWs && voiceWs.readyState === WebSocket.OPEN) voiceWs.close();
+  voiceWs = null;
+  if (playbackCtx) { playbackCtx.close(); playbackCtx = null; }
+  nextPlayTime = 0; currentBotDiv = null; currentBotText = '';
+  appendVoiceStatus('Llamada finalizada');
+}
+
+function startMicCapture() {
+  audioCtx = new AudioContext({ sampleRate: 24000 });
+  const source = audioCtx.createMediaStreamSource(micStream);
+  scriptProc = audioCtx.createScriptProcessor(4096, 1, 1);
+  source.connect(scriptProc);
+  scriptProc.connect(audioCtx.destination);
+  scriptProc.onaudioprocess = e => {
+    if (!callActive || !voiceWs || voiceWs.readyState !== WebSocket.OPEN) return;
+    const f32 = e.inputBuffer.getChannelData(0);
+    const i16 = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) {
+      const s = Math.max(-1, Math.min(1, f32[i]));
+      i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    voiceWs.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: pcm16ToBase64(i16.buffer) }));
+  };
+}
+
+function pcm16ToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function handleRealtimeEvent(msg) {
+  switch (msg.type) {
+    case 'conversation.item.input_audio_transcription.completed':
+      if (msg.transcript && msg.transcript.trim()) {
+        const d = document.createElement('div');
+        d.className = 'msg user';
+        d.textContent = '🎙️ ' + msg.transcript.trim();
+        chatMsgs.appendChild(d);
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      }
+      break;
+    case 'response.audio_transcript.delta':
+      if (!currentBotDiv) {
+        currentBotDiv = document.createElement('div');
+        currentBotDiv.className = 'msg bot';
+        chatMsgs.appendChild(currentBotDiv);
+        currentBotText = '';
+      }
+      currentBotText += msg.delta || '';
+      currentBotDiv.innerHTML = marked.parse(currentBotText);
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      break;
+    case 'response.audio.delta':
+      if (msg.delta) playAudioChunk(msg.delta);
+      break;
+    case 'response.done':
+      currentBotDiv = null; currentBotText = '';
+      break;
+  }
+}
+
+function playAudioChunk(base64) {
+  if (!playbackCtx) {
+    playbackCtx = new AudioContext({ sampleRate: 24000 });
+    nextPlayTime = playbackCtx.currentTime;
+  }
+  if (playbackCtx.state === 'suspended') playbackCtx.resume();
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const i16 = new Int16Array(bytes.buffer);
+  const f32 = new Float32Array(i16.length);
+  for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768.0;
+  const buf = playbackCtx.createBuffer(1, f32.length, 24000);
+  buf.getChannelData(0).set(f32);
+  const src = playbackCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(playbackCtx.destination);
+  const startAt = Math.max(playbackCtx.currentTime, nextPlayTime);
+  src.start(startAt);
+  nextPlayTime = startAt + buf.duration;
+}
+
+function appendVoiceStatus(text) {
+  const d = document.createElement('div');
+  d.className = 'msg voice-status';
+  d.textContent = text;
+  chatMsgs.appendChild(d);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
 }
 </script>
 </body>

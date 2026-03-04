@@ -1,9 +1,11 @@
 const express = require('express');
 const https = require('https');
+const http = require('http');
 const path = require('path');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const WebSocket = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -11,6 +13,7 @@ const PORT = process.env.PORT || 8080;
 const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
 const AZURE_OPENAI_KEY = process.env.AZURE_OPENAI_KEY;
 const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+const AZURE_REALTIME_DEPLOYMENT = process.env.AZURE_REALTIME_DEPLOYMENT || 'gpt-realtime-mini';
 const JWT_SECRET = process.env.JWT_SECRET || 'startups-coffee-secret-2026';
 
 // ── DB ──────────────────────────────────────────────────────────────────────
@@ -373,7 +376,63 @@ app.get('/{*path}', (req, res) => {
   res.set(NO_CACHE).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
+// ── WebSocket Realtime Relay ──────────────────────────────────────────────────
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  if (req.url === '/ws/realtime') {
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
+  } else {
+    socket.destroy();
+  }
+});
+
+const REALTIME_SYSTEM = `Eres el asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
+Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
+Eres amigable, conciso y útil. Responde siempre en español.`;
+
+wss.on('connection', (clientWs) => {
+  const azureHost = new URL(AZURE_OPENAI_ENDPOINT).hostname;
+  const azureUrl = `wss://${azureHost}/openai/realtime?api-version=2025-01-01-preview&deployment=${AZURE_REALTIME_DEPLOYMENT}`;
+
+  const azureWs = new WebSocket(azureUrl, { headers: { 'api-key': AZURE_OPENAI_KEY } });
+
+  azureWs.on('open', () => {
+    azureWs.send(JSON.stringify({
+      type: 'session.update',
+      session: {
+        modalities: ['text', 'audio'],
+        instructions: REALTIME_SYSTEM,
+        voice: 'alloy',
+        input_audio_format: 'pcm16',
+        output_audio_format: 'pcm16',
+        input_audio_transcription: { model: 'whisper-1' },
+        turn_detection: { type: 'server_vad', silence_duration_ms: 800, threshold: 0.5 }
+      }
+    }));
+    if (clientWs.readyState === WebSocket.OPEN) {
+      clientWs.send(JSON.stringify({ type: 'ready' }));
+    }
+  });
+
+  azureWs.on('message', data => {
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data.toString());
+  });
+
+  clientWs.on('message', data => {
+    if (azureWs.readyState === WebSocket.OPEN) azureWs.send(data.toString());
+  });
+
+  clientWs.on('close', () => { if (azureWs.readyState !== WebSocket.CLOSED) azureWs.close(); });
+  azureWs.on('close', () => { if (clientWs.readyState === WebSocket.OPEN) clientWs.close(); });
+  azureWs.on('error', err => {
+    console.error('Azure Realtime WS error:', err.message);
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.close();
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
   initDB().catch(err => console.error('DB init failed (non-fatal):', err.message));
 });
