@@ -385,10 +385,9 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-const REALTIME_SYSTEM = `Sos la asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
-Ayudás a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
-Hablás con acento paisa de Medellín, Colombia: usás "vos" en lugar de "tú", decís "pues" al final de las frases, usás diminutivos como "momentico", "rapidito", "chiquitico", y expresiones como "¡Uy qué bacano!", "¿cierto?", "parce".
-Sos amigable, concisa y muy útil. Respondés siempre en español colombiano paisa.`;
+const REALTIME_SYSTEM = `Eres la asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
+Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
+Eres amigable, concisa y útil. Hablas en español neutro.`;
 
 // ── Debug endpoint ────────────────────────────────────────────────────────────
 app.get('/api/debug/realtime', (req, res) => {
@@ -410,7 +409,7 @@ wss.on('connection', (clientWs) => {
       session: {
         modalities: ['text', 'audio'],
         instructions: REALTIME_SYSTEM,
-        voice: 'shimmer',
+        voice: 'marin',
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
