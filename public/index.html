@@ -1248,6 +1248,7 @@ let voiceWs = null, micStream = null, audioCtx = null, scriptProc = null;
 let playbackCtx = null, nextPlayTime = 0, callActive = false;
 let currentBotDiv = null, currentBotText = '';
 let aiSpeaking = false; // true mientras el AI está generando audio → silencia el mic
+let reactivateMicTimer = null;
 
 voiceBtn.addEventListener('click', () => { callActive ? stopCall() : startCall(); });
 
@@ -1273,7 +1274,8 @@ async function startCall() {
     const msg = JSON.parse(evt.data);
     if (msg.type === 'ready') {
       appendVoiceStatus('Llamada activa — habla ahora 🎙️');
-      startMicCapture();
+      // Pequeño delay para que el mic se estabilice antes de empezar a enviar audio
+      setTimeout(startMicCapture, 800);
     } else if (msg.type === 'error') {
       appendVoiceStatus('Error: ' + msg.message);
       stopCall();
@@ -1296,6 +1298,7 @@ function stopCall() {
   voiceWs = null;
   if (playbackCtx) { playbackCtx.close(); playbackCtx = null; }
   nextPlayTime = 0; currentBotDiv = null; currentBotText = ''; aiSpeaking = false;
+  if (reactivateMicTimer) { clearTimeout(reactivateMicTimer); reactivateMicTimer = null; }
   appendVoiceStatus('Llamada finalizada');
 }
 
@@ -1332,6 +1335,8 @@ function handleRealtimeEvent(msg) {
       if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
         voiceWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
       }
+      // Cancelar cualquier timer de reactivación pendiente
+      if (reactivateMicTimer) { clearTimeout(reactivateMicTimer); reactivateMicTimer = null; }
       break;
     case 'conversation.item.input_audio_transcription.completed':
       if (msg.transcript && msg.transcript.trim()) {
@@ -1357,8 +1362,18 @@ function handleRealtimeEvent(msg) {
       if (msg.delta) playAudioChunk(msg.delta);
       break;
     case 'response.done':
-      aiSpeaking = false;
       currentBotDiv = null; currentBotText = '';
+      // Reactivar mic solo después de que termine el audio del speaker + 400ms de margen
+      {
+        const remaining = playbackCtx ? Math.max(0, (nextPlayTime - playbackCtx.currentTime) * 1000) : 0;
+        reactivateMicTimer = setTimeout(() => {
+          aiSpeaking = false;
+          reactivateMicTimer = null;
+          if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
+            voiceWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+          }
+        }, remaining + 400);
+      }
       break;
   }
 }
