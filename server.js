@@ -14,6 +14,8 @@ const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
 const AZURE_OPENAI_KEY = process.env.AZURE_OPENAI_KEY;
 const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
 const AZURE_REALTIME_DEPLOYMENT = process.env.AZURE_REALTIME_DEPLOYMENT || 'gpt-realtime-mini';
+const AZURE_REALTIME_ENDPOINT = process.env.AZURE_REALTIME_ENDPOINT || AZURE_OPENAI_ENDPOINT;
+const AZURE_REALTIME_KEY = process.env.AZURE_REALTIME_KEY || AZURE_OPENAI_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'startups-coffee-secret-2026';
 
 // ── DB ──────────────────────────────────────────────────────────────────────
@@ -371,11 +373,6 @@ app.get('/admin', (req, res) => {
   res.set(NO_CACHE).sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// ── SPA fallback ─────────────────────────────────────────────────────────────
-app.get('/{*path}', (req, res) => {
-  res.set(NO_CACHE).sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // ── WebSocket Realtime Relay ──────────────────────────────────────────────────
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ noServer: true });
@@ -392,11 +389,19 @@ const REALTIME_SYSTEM = `Eres el asistente de startups.coffee, un portal de cód
 Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
 Eres amigable, conciso y útil. Responde siempre en español.`;
 
-wss.on('connection', (clientWs) => {
-  const azureHost = new URL(AZURE_OPENAI_ENDPOINT).hostname;
-  const azureUrl = `wss://${azureHost}/openai/realtime?api-version=2025-01-01-preview&deployment=${AZURE_REALTIME_DEPLOYMENT}`;
+// ── Debug endpoint ────────────────────────────────────────────────────────────
+app.get('/api/debug/realtime', (req, res) => {
+  const azureHost = new URL(AZURE_REALTIME_ENDPOINT).hostname;
+  const azureUrl = `wss://${azureHost}/openai/realtime?api-version=2024-10-01-preview&deployment=${AZURE_REALTIME_DEPLOYMENT}`;
+  res.json({ azureUrl, deployment: AZURE_REALTIME_DEPLOYMENT, endpoint: AZURE_REALTIME_ENDPOINT });
+});
 
-  const azureWs = new WebSocket(azureUrl, { headers: { 'api-key': AZURE_OPENAI_KEY } });
+wss.on('connection', (clientWs) => {
+  const azureHost = new URL(AZURE_REALTIME_ENDPOINT).hostname;
+  const azureUrl = `wss://${azureHost}/openai/realtime?api-version=2024-10-01-preview&deployment=${AZURE_REALTIME_DEPLOYMENT}`;
+  console.log('[Realtime] Connecting to:', azureUrl);
+
+  const azureWs = new WebSocket(azureUrl, { headers: { 'api-key': AZURE_REALTIME_KEY } });
 
   azureWs.on('open', () => {
     azureWs.send(JSON.stringify({
@@ -427,9 +432,17 @@ wss.on('connection', (clientWs) => {
   clientWs.on('close', () => { if (azureWs.readyState !== WebSocket.CLOSED) azureWs.close(); });
   azureWs.on('close', () => { if (clientWs.readyState === WebSocket.OPEN) clientWs.close(); });
   azureWs.on('error', err => {
-    console.error('Azure Realtime WS error:', err.message);
-    if (clientWs.readyState === WebSocket.OPEN) clientWs.close();
+    console.error('[Realtime] Azure WS error:', err.message, err.code, err.statusCode);
+    if (clientWs.readyState === WebSocket.OPEN) {
+      clientWs.send(JSON.stringify({ type: 'error', message: err.message }));
+      clientWs.close();
+    }
   });
+});
+
+// ── SPA fallback ─────────────────────────────────────────────────────────────
+app.get('/{*path}', (req, res) => {
+  res.set(NO_CACHE).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 server.listen(PORT, () => {
