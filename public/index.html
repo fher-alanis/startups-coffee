@@ -157,10 +157,26 @@
     }
     .card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 18px; transition: border-color 0.15s, transform 0.15s;
-      display: flex; flex-direction: column; gap: 10px;
+      border-radius: var(--radius); overflow: hidden; transition: border-color 0.15s, transform 0.15s;
+      display: flex; flex-direction: column;
     }
     .card:hover { border-color: var(--text-dim); transform: translateY(-2px); }
+    .card-img {
+      width: 100%; height: 140px; overflow: hidden;
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      position: relative; flex-shrink: 0;
+    }
+    .card-img img {
+      width: 100%; height: 100%; object-fit: cover; object-position: top;
+      display: block; transition: transform 0.3s;
+    }
+    .card:hover .card-img img { transform: scale(1.03); }
+    .card-img-placeholder {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; font-weight: 700; color: var(--border);
+      background: linear-gradient(135deg, var(--surface2), var(--surface));
+    }
+    .card-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
     .card-top { display: flex; align-items: flex-start; gap: 12px; }
     .card-logo {
       width: 40px; height: 40px; border-radius: var(--radius-sm); flex-shrink: 0;
@@ -371,14 +387,19 @@
 <!-- NAV -->
 <nav>
   <a href="/" class="nav-logo">startups<span>.</span>coffee</a>
-  <div id="nav-auth">
+  <div id="nav-auth" style="display:flex;align-items:center;gap:10px">
+    <button class="nav-btn ghost" onclick="openSubmit()" style="border-color:var(--orange);color:var(--orange)">+ Subir código</button>
+    <div style="width:1px;height:20px;background:var(--border)"></div>
     <button class="nav-btn ghost" onclick="openAuth('login')">Iniciar sesión</button>
     <button class="nav-btn primary" onclick="openAuth('register')">Registrarse</button>
   </div>
   <div id="nav-user" style="display:none" class="nav-user">
+    <button class="nav-btn ghost" onclick="openSubmit()" style="border-color:var(--orange);color:var(--orange)">+ Subir código</button>
+    <div style="width:1px;height:20px;background:var(--border)"></div>
+    <a id="nav-admin-link" href="/admin" style="display:none;font-size:0.82rem;color:var(--text-muted);text-decoration:none;padding:7px 12px;border-radius:var(--radius-pill);border:1px solid var(--border)">⚙ Admin</a>
     <div class="avatar" id="nav-avatar"></div>
     <span id="nav-name"></span>
-    <button class="nav-btn ghost" onclick="logout()" style="margin-left:4px">Salir</button>
+    <button class="nav-btn ghost" onclick="logout()">Salir</button>
   </div>
 </nav>
 
@@ -389,7 +410,6 @@
   <p>Encuentra códigos de referido y descuentos exclusivos para emprendedores. Comparte los tuyos y ayuda a otros a crecer.</p>
   <div class="hero-actions">
     <button class="btn primary" onclick="openSubmit()">+ Subir código</button>
-    <button class="btn ghost" onclick="document.querySelector('.content').scrollIntoView({behavior:'smooth'})">Explorar →</button>
   </div>
 </div>
 
@@ -525,7 +545,8 @@
         <div class="form-group"><label>Código *</label><input type="text" id="s-code" placeholder="CODIGO123" required></div>
         <div class="form-group"><label>Descuento</label><input type="text" id="s-discount" placeholder="ej. 20%, $50 crédito"></div>
       </div>
-      <div class="form-group"><label>URL (opcional)</label><input type="url" id="s-url" placeholder="https://..."></div>
+      <div class="form-group"><label>URL de la empresa (opcional)</label><input type="url" id="s-url" placeholder="https://..."></div>
+      <div class="form-group"><label>Screenshot / imagen (URL opcional)</label><input type="url" id="s-img" placeholder="https://... (screenshot de la página de la empresa)"></div>
       <div class="form-error" id="submit-error"></div>
       <div class="form-actions">
         <button type="button" class="btn ghost" onclick="closeModal('modal-submit')">Cancelar</button>
@@ -604,6 +625,8 @@ function renderNav() {
     document.getElementById('nav-user').style.display = 'flex';
     document.getElementById('nav-name').textContent = user.name;
     document.getElementById('nav-avatar').textContent = user.name[0].toUpperCase();
+    const adminLink = document.getElementById('nav-admin-link');
+    adminLink.style.display = user.is_admin ? 'inline-flex' : 'none';
   } else {
     document.getElementById('nav-auth').style.display = 'flex';
     document.getElementById('nav-user').style.display = 'none';
@@ -651,26 +674,34 @@ function renderCards() {
   }
   grid.innerHTML = codes.map(c => `
     <div class="card">
-      <div class="card-top">
-        <div class="card-logo">${c.company[0].toUpperCase()}</div>
-        <div class="card-meta">
-          <div class="card-company">${escHtml(c.company)}</div>
-          <div class="card-title">${escHtml(c.title)}</div>
+      <div class="card-img">
+        ${c.company_image
+          ? `<img src="${escHtml(c.company_image)}" alt="${escHtml(c.company)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <div class="card-img-placeholder" style="${c.company_image ? 'display:none' : ''}">${escHtml(c.company[0].toUpperCase())}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-top">
+          <div class="card-logo">${c.company[0].toUpperCase()}</div>
+          <div class="card-meta">
+            <div class="card-company">${escHtml(c.company)}</div>
+            <div class="card-title">${escHtml(c.title)}</div>
+          </div>
         </div>
-      </div>
-      ${c.description ? `<div class="card-desc">${escHtml(c.description)}</div>` : ''}
-      <div class="card-tags">
-        <span class="tag type-${c.type}">${c.type === 'referido' ? '💸 Referido' : '🚀 Perk'}</span>
-        <span class="tag cat">${CAT_LABELS[c.category] || c.category}</span>
-        ${c.discount ? `<span class="discount-badge">${escHtml(c.discount)}</span>` : ''}
-      </div>
-      <div class="card-code-row">
-        <div class="code-box">${escHtml(c.code)}</div>
-        <button class="copy-btn" onclick="copyCode('${escHtml(c.code)}', this)">Copiar</button>
-      </div>
-      <div class="card-footer">
-        ${c.url ? `<a class="card-link" href="${escHtml(c.url)}" target="_blank" rel="noopener">Ir al sitio ↗</a>` : ''}
-        <span class="card-author">por ${escHtml(c.author)}</span>
+        ${c.description ? `<div class="card-desc">${escHtml(c.description)}</div>` : ''}
+        <div class="card-tags">
+          <span class="tag type-${c.type}">${c.type === 'referido' ? '💸 Referido' : '🚀 Perk'}</span>
+          <span class="tag cat">${CAT_LABELS[c.category] || c.category}</span>
+          ${c.discount ? `<span class="discount-badge">${escHtml(c.discount)}</span>` : ''}
+        </div>
+        <div class="card-code-row">
+          <div class="code-box">${escHtml(c.code)}</div>
+          <button class="copy-btn" onclick="copyCode('${escHtml(c.code)}', this)">Copiar</button>
+        </div>
+        <div class="card-footer">
+          ${c.url ? `<a class="card-link" href="${escHtml(c.url)}" target="_blank" rel="noopener">Ir al sitio ↗</a>` : ''}
+          <span class="card-author">por ${escHtml(c.author)}</span>
+        </div>
       </div>
     </div>
   `).join('');
@@ -770,6 +801,7 @@ async function doSubmit(e) {
     code: document.getElementById('s-code').value,
     discount: document.getElementById('s-discount').value,
     url: document.getElementById('s-url').value,
+    company_image: document.getElementById('s-img').value,
   };
   try {
     const r = await fetch('/api/codes', { method: 'POST', headers: {'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body: JSON.stringify(payload) });

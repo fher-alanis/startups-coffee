@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — startups.coffee</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e0e0e; --surface: #161616; --surface2: #1e1e1e;
+      --border: #2a2a2a; --text: #e8e8e8; --text-muted: #888; --text-dim: #555;
+      --orange: #f97316; --orange-dim: #ea580c; --orange-glow: #f9731622;
+      --green: #4ade80; --green-bg: #1e3a2f; --red: #f87171; --red-bg: #3a1e1e;
+      --radius: 12px; --radius-sm: 8px; --radius-pill: 100px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(14,14,14,0.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 60px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .nav-logo { font-size: 1rem; font-weight: 700; color: var(--text); text-decoration: none; }
+    .nav-logo span { color: var(--orange); }
+    .nav-tag { font-size: 0.72rem; background: var(--orange-glow); color: var(--orange); border: 1px solid var(--orange)33; padding: 3px 10px; border-radius: var(--radius-pill); }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .nav-btn { padding: 7px 16px; border-radius: var(--radius-pill); font-size: 0.82rem; font-weight: 500; cursor: pointer; font-family: inherit; }
+    .nav-btn.ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); transition: all 0.15s; }
+    .nav-btn.ghost:hover { color: var(--text); border-color: var(--text-dim); }
+    a.nav-btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+    .wrapper { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Header section ── */
+    .page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+    .page-header h1 { font-size: 1.4rem; font-weight: 700; }
+    .badge { font-size: 0.75rem; font-weight: 600; padding: 4px 12px; border-radius: var(--radius-pill); }
+    .badge.pending { background: #2a1e00; color: #fbbf24; border: 1px solid #fbbf2433; }
+    .badge.zero { background: var(--green-bg); color: var(--green); border: 1px solid var(--green)33; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 6px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+    .tab { padding: 10px 18px; font-size: 0.84rem; font-weight: 500; cursor: pointer; background: none; border: none; color: var(--text-muted); font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+    /* ── List ── */
+    .code-list { display: flex; flex-direction: column; gap: 10px; }
+    .code-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; gap: 0; overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .code-item:hover { border-color: var(--text-dim); }
+    .code-item.approved { border-left: 3px solid var(--green); }
+    .code-item.pending-item { border-left: 3px solid #fbbf24; }
+
+    .code-thumb {
+      width: 120px; flex-shrink: 0; background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 700; color: var(--border);
+      border-right: 1px solid var(--border); overflow: hidden;
+    }
+    .code-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+    .code-info { flex: 1; padding: 14px 16px; min-width: 0; }
+    .code-info-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+    .code-company { font-size: 0.78rem; color: var(--text-muted); }
+    .code-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    .code-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .tag { padding: 3px 10px; border-radius: var(--radius-pill); font-size: 0.72rem; font-weight: 500; white-space: nowrap; }
+    .tag.type-referido { background: #1e3a2f; color: #4ade80; }
+    .tag.type-perk { background: #1e1e3a; color: #818cf8; }
+    .tag.cat { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .code-code { font-family: monospace; font-size: 0.85rem; color: var(--orange); background: var(--surface2); padding: 3px 8px; border-radius: 5px; border: 1px dashed var(--border); }
+    .code-author { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
+    .code-discount { font-size: 0.75rem; color: var(--orange); font-weight: 600; }
+
+    .code-actions { display: flex; flex-direction: column; gap: 8px; padding: 14px; justify-content: center; flex-shrink: 0; min-width: 120px; }
+    .action-btn { padding: 8px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit; border: none; transition: all 0.15s; text-align: center; }
+    .action-btn.approve { background: var(--green-bg); color: var(--green); border: 1px solid var(--green)44; }
+    .action-btn.approve:hover { background: var(--green); color: #000; }
+    .action-btn.reject { background: var(--red-bg); color: var(--red); border: 1px solid var(--red)44; }
+    .action-btn.reject:hover { background: var(--red); color: #fff; }
+    .action-btn.view { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+    .action-btn.view:hover { color: var(--text); }
+    .action-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .approved-label { font-size: 0.75rem; color: var(--green); font-weight: 500; display: flex; align-items: center; gap: 4px; }
+
+    /* ── Empty ── */
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* ── Loading ── */
+    #loading { text-align: center; padding: 60px; color: var(--text-dim); font-size: 0.9rem; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-pill); padding: 10px 20px;
+      font-size: 0.84rem; color: var(--text); z-index: 2000;
+      opacity: 0; transition: all 0.2s; pointer-events: none; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--green)66; color: var(--green); }
+    .toast.error { border-color: var(--red)66; color: var(--red); }
+
+    /* ── Stats ── */
+    .stats-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; flex: 1; min-width: 120px; }
+    .stat-n { font-size: 1.6rem; font-weight: 700; color: var(--orange); }
+    .stat-l { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">startups<span>.</span>coffee</a>
+  <span class="nav-tag">⚙ Admin</span>
+  <div class="nav-right">
+    <span id="nav-name" style="font-size:0.82rem;color:var(--text-muted)"></span>
+    <a href="/" class="nav-btn ghost">← Volver al portal</a>
+    <button class="nav-btn ghost" onclick="logout()">Salir</button>
+  </div>
+</nav>
+
+<div class="wrapper" id="loading">Verificando acceso…</div>
+
+<div class="wrapper" id="app" style="display:none">
+  <div class="page-header">
+    <h1>Dashboard Admin</h1>
+    <span class="badge pending" id="pending-badge" style="display:none"></span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-n" id="s-total">—</div><div class="stat-l">Total códigos</div></div>
+    <div class="stat-card"><div class="stat-n" id="s-approved">—</div><div class="stat-l">Aprobados</div></div>
+    <div class="stat-card"><div class="stat-n" id="s-pending">—</div><div class="stat-l">Pendientes</div></div>
+    <div class="stat-card"><div class="stat-n" id="s-refs">—</div><div class="stat-l">Referidos</div></div>
+    <div class="stat-card"><div class="stat-n" id="s-perks">—</div><div class="stat-l">Perks</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('pending')">Pendientes <span id="tab-pending-count"></span></button>
+    <button class="tab" onclick="showTab('all')">Todos los códigos</button>
+  </div>
+
+  <!-- List -->
+  <div class="code-list" id="code-list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const token = localStorage.getItem('sc_token');
+let pendingCodes = [];
+let allCodes = [];
+let currentTab = 'pending';
+
+const CAT_LABELS = {
+  'ia-automatizacion': 'IA / Auto', 'cloud-infra': 'Cloud / Infra',
+  'desarrollo-nocode': 'NoCode Dev', 'marketing': 'Marketing',
+  'imagen-video': 'Imagen / Video', 'rrhh': 'RRHH', 'finanzas': 'Finanzas',
+  'diseno': 'Diseño', 'legal': 'Legal', 'productividad': 'Productividad',
+};
+
+(async () => {
+  if (!token) { window.location.href = '/'; return; }
+  try {
+    const r = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+    const { user } = await r.json();
+    if (!user?.is_admin) { window.location.href = '/'; return; }
+    document.getElementById('nav-name').textContent = user.name;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await loadData();
+  } catch { window.location.href = '/'; }
+})();
+
+async function loadData() {
+  const [rPending, rAll] = await Promise.all([
+    fetch('/api/admin/pending', { headers: { Authorization: `Bearer ${token}` } }),
+    fetch('/api/admin/all-codes', { headers: { Authorization: `Bearer ${token}` } })
+  ]);
+  pendingCodes = await rPending.json();
+  allCodes = await rAll.json();
+  updateStats();
+  renderList();
+}
+
+function updateStats() {
+  const approved = allCodes.filter(c => c.approved).length;
+  const pending = allCodes.filter(c => !c.approved).length;
+  document.getElementById('s-total').textContent = allCodes.length;
+  document.getElementById('s-approved').textContent = approved;
+  document.getElementById('s-pending').textContent = pending;
+  document.getElementById('s-refs').textContent = allCodes.filter(c => c.type === 'referido').length;
+  document.getElementById('s-perks').textContent = allCodes.filter(c => c.type === 'perk').length;
+  const badge = document.getElementById('pending-badge');
+  const tCount = document.getElementById('tab-pending-count');
+  if (pending > 0) {
+    badge.textContent = `${pending} pendiente${pending > 1 ? 's' : ''}`;
+    badge.style.display = '';
+    tCount.textContent = `(${pending})`;
+  } else {
+    badge.style.display = 'none';
+    tCount.textContent = '';
+  }
+}
+
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && tab === 'pending') || (i === 1 && tab === 'all')));
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('code-list');
+  const codes = currentTab === 'pending' ? pendingCodes : allCodes;
+  if (!codes.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">${currentTab === 'pending' ? '✅' : '📭'}</div>${currentTab === 'pending' ? 'No hay códigos pendientes' : 'No hay códigos aún'}</div>`;
+    return;
+  }
+  list.innerHTML = codes.map(c => `
+    <div class="code-item ${c.approved ? 'approved' : 'pending-item'}" id="item-${c.id}">
+      <div class="code-thumb">
+        ${c.company_image
+          ? `<img src="${esc(c.company_image)}" alt="${esc(c.company)}" onerror="this.style.display='none';this.parentElement.textContent='${esc(c.company[0].toUpperCase())}'">`
+          : esc(c.company[0].toUpperCase())}
+      </div>
+      <div class="code-info">
+        <div class="code-info-top">
+          <div>
+            <div class="code-company">${esc(c.company)}</div>
+            <div class="code-title">${esc(c.title)}</div>
+          </div>
+        </div>
+        <div class="code-meta">
+          <span class="tag type-${c.type}">${c.type === 'referido' ? '💸 Referido' : '🚀 Perk'}</span>
+          <span class="tag cat">${CAT_LABELS[c.category] || c.category}</span>
+          <span class="code-code">${esc(c.code)}</span>
+          ${c.discount ? `<span class="code-discount">${esc(c.discount)}</span>` : ''}
+        </div>
+        ${c.description ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;line-height:1.5">${esc(c.description)}</div>` : ''}
+        <div class="code-author">Por ${esc(c.author)} · ${new Date(c.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short',year:'numeric'})}${c.url ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-dim);text-decoration:none">${esc(c.url)}</a>` : ''}</div>
+      </div>
+      <div class="code-actions">
+        ${c.approved
+          ? `<div class="approved-label">✓ Publicado</div>
+             <button class="action-btn reject" onclick="reject(${c.id})">Eliminar</button>`
+          : `<button class="action-btn approve" onclick="approve(${c.id})">✓ Aprobar</button>
+             <button class="action-btn reject" onclick="reject(${c.id})">✗ Rechazar</button>`}
+        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" class="action-btn view">Ver sitio</a>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approve(id) {
+  const btn = document.querySelector(`#item-${id} .approve`);
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(`/api/admin/codes/${id}/approve`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error();
+    showToast('Código aprobado y publicado', 'success');
+    await loadData();
+  } catch { showToast('Error al aprobar', 'error'); if (btn) btn.disabled = false; }
+}
+
+async function reject(id) {
+  if (!confirm('¿Seguro que deseas eliminar este código? Esta acción no se puede deshacer.')) return;
+  try {
+    const r = await fetch(`/api/admin/codes/${id}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error();
+    showToast('Código eliminado', 'success');
+    await loadData();
+  } catch { showToast('Error al eliminar', 'error'); }
+}
+
+function logout() {
+  localStorage.removeItem('sc_token');
+  window.location.href = '/';
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

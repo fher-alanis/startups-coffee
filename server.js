@@ -33,6 +33,7 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false`);
   await db.query(`
     CREATE TABLE IF NOT EXISTS codes (
       id SERIAL PRIMARY KEY,
@@ -49,6 +50,12 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await db.query(`ALTER TABLE codes ADD COLUMN IF NOT EXISTS company_image TEXT`);
+  // Seed admin from env var
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    await db.query(`UPDATE users SET is_admin = true WHERE email = lower($1)`, [adminEmail]);
+  }
   await db.query(`
     CREATE TABLE IF NOT EXISTS chat_logs (
       id SERIAL PRIMARY KEY,
@@ -136,14 +143,55 @@ app.post('/api/auth/login', async (req, res) => {
     if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
     const valid = await bcrypt.compare(password, rows[0].password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    const token = jwt.sign({ id: rows[0].id, email: rows[0].email, name: rows[0].name }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: rows[0].id, email: rows[0].email, name: rows[0].name } });
+    const u = { id: rows[0].id, email: rows[0].email, name: rows[0].name, is_admin: rows[0].is_admin || false };
+    const token = jwt.sign(u, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: u });
   } catch {
     res.status(500).json({ error: 'Error al autenticar' });
   }
 });
 
 app.get('/api/auth/me', authMiddleware, (req, res) => res.json({ user: req.user }));
+
+function adminOnly(req, res, next) {
+  if (!req.user?.is_admin) return res.status(403).json({ error: 'Acceso denegado' });
+  next();
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+app.get('/api/admin/pending', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT c.*, u.name as author, u.email as author_email
+       FROM codes c JOIN users u ON c.user_id = u.id
+       WHERE c.approved = false ORDER BY c.created_at ASC`
+    );
+    res.json(rows);
+  } catch { res.status(500).json({ error: 'Error' }); }
+});
+
+app.put('/api/admin/codes/:id/approve', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    await db.query('UPDATE codes SET approved = true WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Error' }); }
+});
+
+app.put('/api/admin/codes/:id/reject', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    await db.query('DELETE FROM codes WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Error' }); }
+});
+
+app.get('/api/admin/all-codes', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT c.*, u.name as author FROM codes c JOIN users u ON c.user_id = u.id ORDER BY c.approved, c.created_at DESC`
+    );
+    res.json(rows);
+  } catch { res.status(500).json({ error: 'Error' }); }
+});
 
 // ── Codes ────────────────────────────────────────────────────────────────────
 app.get('/api/codes', async (req, res) => {
@@ -167,15 +215,15 @@ app.get('/api/codes', async (req, res) => {
 });
 
 app.post('/api/codes', authMiddleware, async (req, res) => {
-  const { type, category, company, title, description, code, url, discount } = req.body;
+  const { type, category, company, title, description, code, url, discount, company_image } = req.body;
   if (!type || !category || !company || !title || !code) {
     return res.status(400).json({ error: 'Faltan campos requeridos' });
   }
   try {
     const { rows } = await db.query(
-      `INSERT INTO codes (user_id, type, category, company, title, description, code, url, discount, approved)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false) RETURNING *`,
-      [req.user.id, type, category, company, title, description, code, url, discount]
+      `INSERT INTO codes (user_id, type, category, company, title, description, code, url, discount, company_image, approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false) RETURNING *`,
+      [req.user.id, type, category, company, title, description, code, url, discount, company_image || null]
     );
     res.status(201).json({ ...rows[0], message: 'Código enviado, pendiente de aprobación' });
   } catch {
@@ -261,6 +309,11 @@ app.post('/api/chat', (req, res) => {
     },
     err => { console.error('Stream error:', err); res.end(); }
   );
+});
+
+// ── Admin page ────────────────────────────────────────────────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // ── SPA fallback ─────────────────────────────────────────────────────────────
