@@ -51,6 +51,8 @@ async function initDB() {
     )
   `);
   await db.query(`ALTER TABLE codes ADD COLUMN IF NOT EXISTS company_image TEXT`);
+  await db.query(`ALTER TABLE codes ADD COLUMN IF NOT EXISTS guest_name TEXT`);
+  await db.query(`ALTER TABLE codes ADD COLUMN IF NOT EXISTS guest_email TEXT`);
   // Seed admin from env var
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail) {
@@ -117,6 +119,14 @@ function authMiddleware(req, res, next) {
   }
 }
 
+function optionalAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Bearer ')) {
+    try { req.user = jwt.verify(header.split(' ')[1], JWT_SECRET); } catch {}
+  }
+  next();
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 app.post('/api/auth/register', async (req, res) => {
   const { email, password, name } = req.body;
@@ -126,6 +136,11 @@ app.post('/api/auth/register', async (req, res) => {
     const { rows } = await db.query(
       'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
       [email.toLowerCase(), hash, name]
+    );
+    // Asociar códigos subidos como invitado con el mismo email
+    await db.query(
+      `UPDATE codes SET user_id = $1 WHERE guest_email = $2 AND user_id IS NULL`,
+      [rows[0].id, email.toLowerCase()]
     );
     const token = jwt.sign({ id: rows[0].id, email: rows[0].email, name: rows[0].name }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: rows[0] });
@@ -236,16 +251,29 @@ app.get('/api/codes', async (req, res) => {
   }
 });
 
-app.post('/api/codes', authMiddleware, async (req, res) => {
-  const { type, category, company, title, description, code, url, discount, company_image } = req.body;
+app.post('/api/codes', optionalAuth, async (req, res) => {
+  const { type, category, company, title, description, code, url, discount, company_image, guest_name, guest_email } = req.body;
   if (!type || !category || !company || !title || !code) {
     return res.status(400).json({ error: 'Faltan campos requeridos' });
   }
+  let userId = null, guestNameVal = null, guestEmailVal = null;
+  if (req.user) {
+    userId = req.user.id;
+  } else {
+    if (!guest_name || !guest_email) {
+      return res.status(400).json({ error: 'Nombre y email requeridos para envíos sin cuenta' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest_email.trim())) {
+      return res.status(400).json({ error: 'Email no válido' });
+    }
+    guestNameVal = guest_name.trim();
+    guestEmailVal = guest_email.trim().toLowerCase();
+  }
   try {
     const { rows } = await db.query(
-      `INSERT INTO codes (user_id, type, category, company, title, description, code, url, discount, company_image, approved)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false) RETURNING *`,
-      [req.user.id, type, category, company, title, description, code, url, discount, company_image || null]
+      `INSERT INTO codes (user_id, type, category, company, title, description, code, url, discount, company_image, guest_name, guest_email, approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false) RETURNING *`,
+      [userId, type, category, company, title, description, code, url, discount, company_image || null, guestNameVal, guestEmailVal]
     );
     res.status(201).json({ ...rows[0], message: 'Código enviado, pendiente de aprobación' });
   } catch {

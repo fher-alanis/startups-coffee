@@ -400,6 +400,71 @@
       .stats { gap: 24px; }
     }
 
+    /* ── Steps section ── */
+    .steps-section {
+      max-width: 960px; margin: 0 auto 56px; padding: 0 24px; text-align: center;
+    }
+    .steps-head { margin-bottom: 36px; }
+    .steps-head h2 { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .steps-head p { color: var(--text-muted); font-size: 0.95rem; max-width: 480px; margin: 0 auto; line-height: 1.6; }
+    .steps-grid {
+      display: grid; grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: start; gap: 0;
+    }
+    .step-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px 20px 24px; position: relative;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .step-card:hover { border-color: var(--orange); box-shadow: var(--shadow); }
+    .step-num {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      width: 28px; height: 28px; background: var(--orange); color: #fff;
+      border-radius: 50%; font-size: 0.8rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-icon { font-size: 1.8rem; margin: 4px 0 12px; }
+    .step-card h3 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .step-card p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+    .step-arrow {
+      display: flex; align-items: flex-start; padding: 52px 16px 0;
+      color: var(--orange); font-size: 1.2rem; opacity: 0.5;
+    }
+    .steps-cta { margin-top: 32px; }
+    @media (max-width: 700px) {
+      .steps-grid { grid-template-columns: 1fr; }
+      .step-arrow { display: none; }
+      .step-card { margin-bottom: 20px; }
+    }
+
+    /* ── Guest submit banner ── */
+    .guest-recommended {
+      background: var(--surface2); border: 1px solid var(--orange);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 4px;
+    }
+    .guest-rec-badge {
+      display: inline-block; background: var(--orange); color: #fff;
+      font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+      border-radius: var(--radius-pill); letter-spacing: 0.04em; margin-bottom: 10px;
+    }
+    .guest-rec-title { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+    .guest-rec-list {
+      list-style: none; text-align: left; font-size: 0.85rem;
+      color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px;
+    }
+    .guest-rec-list li::before { content: '✓ '; color: var(--orange); font-weight: 700; }
+    .guest-skip {
+      display: block; width: 100%; background: none; border: none;
+      color: var(--text-dim); font-size: 0.85rem; padding: 14px;
+      cursor: pointer; text-align: center; font-family: inherit;
+    }
+    .guest-skip:hover { color: var(--text-muted); text-decoration: underline; }
+    .guest-notice {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 14px;
+      font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;
+    }
+
     /* ── User dropdown ── */
     .user-menu-wrap { position: relative; }
     .user-menu-btn {
@@ -508,6 +573,39 @@
   <div class="stat"><div class="stat-n" id="stat-cats">10</div><div class="stat-l">Categorías</div></div>
 </div>
 
+<!-- STEPS -->
+<section class="steps-section">
+  <div class="steps-head">
+    <h2>Así de sencillo funciona 💸</h2>
+    <p>Sube tu código de referido, compártelo y ayuda a otros a ahorrar. Sin complicaciones y, si quieres, incluso sin registro.</p>
+  </div>
+  <div class="steps-grid">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-icon">📤</div>
+      <h3>Sube tu código</h3>
+      <p>Publica tu código de referido o descuento en segundos. Incluso sin crear una cuenta.</p>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-icon">🌐</div>
+      <h3>Llega a más emprendedores</h3>
+      <p>Tu código aparece junto a las marcas más usadas por startups en toda Latinoamérica.</p>
+    </div>
+    <div class="step-arrow">→</div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-icon">💸</div>
+      <h3>Tú y otros ahorran</h3>
+      <p>Cada persona que use tu código obtiene un descuento o cashback. Tú recibes recompensas.</p>
+    </div>
+  </div>
+  <div class="steps-cta">
+    <button class="btn primary" onclick="openSubmit()">+ Subir mi código</button>
+  </div>
+</section>
+
 <!-- MAIN -->
 <div class="layout">
   <!-- SIDEBAR -->
@@ -600,7 +698,35 @@
   <div class="modal" style="position:relative">
     <button class="modal-close" onclick="closeModal('modal-submit')">✕</button>
     <h2>Subir código</h2>
+
+    <!-- Banner para invitados (solo cuando no hay sesión) -->
+    <div id="guest-banner" style="display:none">
+      <div class="guest-recommended">
+        <div class="guest-rec-badge">Recomendado</div>
+        <div class="guest-rec-title">Crea tu cuenta gratis y controla tus códigos</div>
+        <ul class="guest-rec-list">
+          <li>Edita y elimina tus códigos cuando quieras</li>
+          <li>Historial y control desde tu perfil</li>
+          <li>Genera más confianza en los usuarios</li>
+          <li>Consigue más usos de tu código</li>
+        </ul>
+        <button class="btn primary" style="width:100%;margin-top:16px" onclick="closeModal('modal-submit');openAuth('register')">Crear cuenta — 1 minuto, gratis</button>
+      </div>
+      <button class="guest-skip" onclick="chooseGuest()">Continuar sin cuenta →</button>
+    </div>
+
     <form id="form-submit" onsubmit="doSubmit(event)">
+      <!-- Aviso modo invitado -->
+      <div id="guest-fields" style="display:none">
+        <div class="guest-notice">
+          ⚠ Sin cuenta no podrás editar ni eliminar tu código. Si te registras después con este mismo email, obtendrás control total.
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Nombre *</label><input type="text" id="s-guest-name" placeholder="Tu nombre"></div>
+          <div class="form-group"><label>Email *</label><input type="email" id="s-guest-email" placeholder="name@email.com"></div>
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>Tipo *</label>
@@ -952,9 +1078,29 @@ async function saveSettings(e) {
 }
 
 // ── Submit ────────────────────────────────────────────────────────────────────
+let guestMode = false;
+
 function openSubmit() {
-  if (!user) { openAuth('register'); return; }
+  guestMode = false;
+  const banner = document.getElementById('guest-banner');
+  const form = document.getElementById('form-submit');
+  const guestFields = document.getElementById('guest-fields');
+  if (!user) {
+    banner.style.display = 'block';
+    form.style.display = 'none';
+  } else {
+    banner.style.display = 'none';
+    form.style.display = 'block';
+    guestFields.style.display = 'none';
+  }
   openModal('modal-submit');
+}
+
+function chooseGuest() {
+  guestMode = true;
+  document.getElementById('guest-banner').style.display = 'none';
+  document.getElementById('form-submit').style.display = 'block';
+  document.getElementById('guest-fields').style.display = 'block';
 }
 
 async function doSubmit(e) {
@@ -971,13 +1117,27 @@ async function doSubmit(e) {
     url: document.getElementById('s-url').value,
     company_image: document.getElementById('s-img').value,
   };
+  const headers = { 'Content-Type': 'application/json' };
+  if (user && token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    payload.guest_name = document.getElementById('s-guest-name').value.trim();
+    payload.guest_email = document.getElementById('s-guest-email').value.trim();
+    if (!payload.guest_name || !payload.guest_email) {
+      document.getElementById('submit-error').textContent = 'Nombre y email son requeridos';
+      return;
+    }
+  }
   try {
-    const r = await fetch('/api/codes', { method: 'POST', headers: {'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body: JSON.stringify(payload) });
+    const r = await fetch('/api/codes', { method: 'POST', headers, body: JSON.stringify(payload) });
     const data = await r.json();
     if (!r.ok) { document.getElementById('submit-error').textContent = data.error; return; }
     closeModal('modal-submit');
     document.getElementById('form-submit').reset();
-    showToast('¡Código enviado! Estará visible tras revisión.', 'success');
+    const msg = guestMode
+      ? '¡Código enviado! Regístrate con el mismo email para gestionarlo.'
+      : '¡Código enviado! Estará visible tras revisión.';
+    showToast(msg, 'success');
   } catch { document.getElementById('submit-error').textContent = 'Error de conexión'; }
 }
 
