@@ -1186,6 +1186,17 @@ function showToast(msg, type = '') {
   setTimeout(() => { t.className = 'toast'; }, 3000);
 }
 
+// ── Search trigger desde el chat ──────────────────────────────────────────────
+function triggerUISearch(query) {
+  const input = document.getElementById('search-input');
+  if (!input) return;
+  input.value = query;
+  onSearch(); // dispara el filtro existente de la página
+  // Scroll suave a la sección de resultados
+  const grid = document.getElementById('codes-grid') || document.querySelector('.codes-section');
+  if (grid) setTimeout(() => grid.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+}
+
 // ── Chat ──────────────────────────────────────────────────────────────────────
 const chatBtn = document.getElementById('chat-btn');
 const chatWin = document.getElementById('chat-window');
@@ -1233,7 +1244,7 @@ async function sendChat() {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6).trim();
         if (data === '[DONE]') break;
-        try { const p = JSON.parse(data); if (p.token) { fullReply += p.token; botDiv.innerHTML = marked.parse(fullReply); chatMsgs.scrollTop = chatMsgs.scrollHeight; } } catch (_) {}
+        try { const p = JSON.parse(data); if (p.token) { fullReply += p.token; botDiv.innerHTML = marked.parse(fullReply); chatMsgs.scrollTop = chatMsgs.scrollHeight; } if (p.search) triggerUISearch(p.search); } catch (_) {}
       }
     }
     if (!fullReply) botDiv.innerHTML = 'Lo siento, hubo un error.';
@@ -1279,6 +1290,8 @@ async function startCall() {
     } else if (msg.type === 'error') {
       appendVoiceStatus('Error: ' + msg.message);
       stopCall();
+    } else if (msg.type === 'search') {
+      triggerUISearch(msg.query);
     } else {
       handleRealtimeEvent(msg);
     }

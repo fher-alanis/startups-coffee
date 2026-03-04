@@ -291,32 +291,61 @@ const SYSTEM_MESSAGE = {
   role: 'system',
   content: `Eres el asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
 Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
-Eres amigable, conciso y útil. Puedes hablar sobre herramientas SaaS, recursos para startups,
-estrategias de emprendimiento y todo lo relacionado con el ecosistema startup.
-Responde siempre en el mismo idioma que el usuario.`
+Cuando el usuario pregunte por herramientas, empresas o descuentos específicos, usa search_codes para buscar en la base de datos real de la plataforma.
+Eres amigable, conciso y útil. Responde siempre en el mismo idioma que el usuario.`
 };
 
-function streamOpenAI(messages, onChunk, onDone, onError) {
+const SEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'search_codes',
+    description: 'Busca códigos de descuento y referidos en la plataforma por empresa, herramienta o categoría',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Nombre de empresa o herramienta a buscar' },
+        category: { type: 'string', description: 'Categoría opcional', enum: ['ia-automatizacion','cloud-infra','desarrollo-nocode','marketing','imagen-video','rrhh','finanzas','diseno','legal','productividad'] },
+        type: { type: 'string', enum: ['referido','perk'] }
+      },
+      required: ['query']
+    }
+  }
+};
+
+async function executeSearchCodes({ query, category, type: codeType }) {
+  let q = 'SELECT company, title, description, code, url, discount, type FROM codes WHERE approved = true';
+  const params = [];
+  params.push(`%${query}%`);
+  q += ` AND (company ILIKE $${params.length} OR title ILIKE $${params.length} OR description ILIKE $${params.length})`;
+  if (category) { params.push(category); q += ` AND category = $${params.length}`; }
+  if (codeType) { params.push(codeType); q += ` AND type = $${params.length}`; }
+  q += ' ORDER BY created_at DESC LIMIT 10';
+  try {
+    const { rows } = await db.query(q, params);
+    if (rows.length === 0) return JSON.stringify({ found: 0, message: 'No se encontraron códigos para esa búsqueda.' });
+    return JSON.stringify({ found: rows.length, codes: rows });
+  } catch (err) {
+    return JSON.stringify({ error: err.message });
+  }
+}
+
+function streamOpenAI(messages, onChunk, onDone, onError, tools = []) {
   const endpoint = new URL(
     `openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-02-01`,
     AZURE_OPENAI_ENDPOINT
   );
-  const payload = JSON.stringify({
-    messages, max_tokens: 800, temperature: 0.7, stream: true,
-    stream_options: { include_usage: true }
-  });
+  const body = { messages, max_tokens: 800, temperature: 0.7, stream: true, stream_options: { include_usage: true } };
+  if (tools.length) { body.tools = tools; body.tool_choice = 'auto'; }
+  const payload = JSON.stringify(body);
   const options = {
     hostname: endpoint.hostname,
     path: endpoint.pathname + endpoint.search,
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'api-key': AZURE_OPENAI_KEY,
-      'Content-Length': Buffer.byteLength(payload)
-    }
+    headers: { 'Content-Type': 'application/json', 'api-key': AZURE_OPENAI_KEY, 'Content-Length': Buffer.byteLength(payload) }
   };
   const req = https.request(options, res => {
-    let buffer = '', usage = {}, done = false;
+    let buffer = '', usage = {}, done = false, finishReason = null;
+    const toolCallAccum = {};
     res.on('data', chunk => {
       buffer += chunk.toString();
       const lines = buffer.split('\n');
@@ -324,16 +353,29 @@ function streamOpenAI(messages, onChunk, onDone, onError) {
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6).trim();
-        if (data === '[DONE]') { if (!done) { done = true; onDone(usage); } return; }
+        if (data === '[DONE]') { if (!done) { done = true; onDone(usage, finishReason, toolCallAccum); } return; }
         try {
           const parsed = JSON.parse(data);
           if (parsed.usage) usage = parsed.usage;
-          const token = parsed.choices?.[0]?.delta?.content;
+          const choice = parsed.choices?.[0];
+          if (!choice) continue;
+          if (choice.finish_reason) finishReason = choice.finish_reason;
+          const token = choice.delta?.content;
           if (token) onChunk(token);
+          const tcDeltas = choice.delta?.tool_calls;
+          if (tcDeltas) {
+            for (const tc of tcDeltas) {
+              const i = tc.index;
+              if (!toolCallAccum[i]) toolCallAccum[i] = { id: '', name: '', arguments: '' };
+              if (tc.id) toolCallAccum[i].id += tc.id;
+              if (tc.function?.name) toolCallAccum[i].name += tc.function.name;
+              if (tc.function?.arguments) toolCallAccum[i].arguments += tc.function.arguments;
+            }
+          }
         } catch (_) {}
       }
     });
-    res.on('end', () => { if (!done) { done = true; onDone(usage); } });
+    res.on('end', () => { if (!done) { done = true; onDone(usage, finishReason, toolCallAccum); } });
   });
   req.on('error', onError);
   req.write(payload);
@@ -343,27 +385,42 @@ function streamOpenAI(messages, onChunk, onDone, onError) {
 app.post('/api/chat', (req, res) => {
   const { messages, sessionId } = req.body;
   const userMsg = messages?.[messages.length - 1]?.content || '';
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  });
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' });
   let fullReply = '';
-  streamOpenAI(
-    [SYSTEM_MESSAGE, ...messages],
-    token => { fullReply += token; res.write(`data: ${JSON.stringify({ token })}\n\n`); },
-    usage => {
-      res.write('data: [DONE]\n\n');
-      res.end();
-      db.query(
-        `INSERT INTO chat_logs (session_id, user_message, assistant_message, input_tokens, output_tokens, total_tokens)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [sessionId || 'anonymous', userMsg, fullReply, usage.prompt_tokens || 0, usage.completion_tokens || 0, usage.total_tokens || 0]
-      ).catch(err => console.error('DB log error:', err.message));
-    },
-    err => { console.error('Stream error:', err); res.end(); }
-  );
+
+  function doStream(msgs, includeTools) {
+    streamOpenAI(
+      msgs,
+      token => { fullReply += token; res.write(`data: ${JSON.stringify({ token })}\n\n`); },
+      async (usage, finishReason, toolCalls) => {
+        if (finishReason === 'tool_calls') {
+          const tc = toolCalls[0];
+          try {
+            const args = JSON.parse(tc.arguments);
+            const result = await executeSearchCodes(args);
+            res.write(`data: ${JSON.stringify({ search: args.query })}\n\n`);
+            const assistantMsg = { role: 'assistant', content: null, tool_calls: [{ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.arguments } }] };
+            const toolMsg = { role: 'tool', tool_call_id: tc.id, content: result };
+            fullReply = '';
+            doStream([...msgs, assistantMsg, toolMsg], false);
+          } catch (err) {
+            console.error('Tool error:', err);
+            res.write('data: [DONE]\n\n'); res.end();
+          }
+        } else {
+          res.write('data: [DONE]\n\n'); res.end();
+          if (fullReply) db.query(
+            `INSERT INTO chat_logs (session_id, user_message, assistant_message, input_tokens, output_tokens, total_tokens) VALUES ($1,$2,$3,$4,$5,$6)`,
+            [sessionId || 'anonymous', userMsg, fullReply, usage.prompt_tokens || 0, usage.completion_tokens || 0, usage.total_tokens || 0]
+          ).catch(err => console.error('DB log error:', err.message));
+        }
+      },
+      err => { console.error('Stream error:', err); res.end(); },
+      includeTools ? [SEARCH_TOOL] : []
+    );
+  }
+
+  doStream([SYSTEM_MESSAGE, ...messages], true);
 });
 
 const NO_CACHE = { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' };
@@ -413,21 +470,44 @@ wss.on('connection', (clientWs) => {
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: { type: 'server_vad', silence_duration_ms: 600, threshold: 0.6 }
+        turn_detection: { type: 'server_vad', silence_duration_ms: 600, threshold: 0.6 },
+        tools: [SEARCH_TOOL],
+        tool_choice: 'auto'
       }
     }));
-    // No enviamos 'ready' aquí — esperamos a session.updated de Azure
   });
 
-  azureWs.on('message', data => {
+  azureWs.on('message', async data => {
     const str = data.toString();
-    // Notificar al cliente que está listo solo cuando Azure confirme la sesión
     try {
       const msg = JSON.parse(str);
+
       if (msg.type === 'session.updated' && clientWs.readyState === WebSocket.OPEN) {
         clientWs.send(JSON.stringify({ type: 'ready' }));
       }
+
+      // Manejar tool calls del Realtime API
+      if (msg.type === 'response.output_item.done' && msg.item?.type === 'function_call') {
+        const { call_id, name, arguments: argsStr } = msg.item;
+        try {
+          const args = JSON.parse(argsStr);
+          const result = await executeSearchCodes(args);
+          // Enviar trigger de búsqueda al cliente
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.send(JSON.stringify({ type: 'search', query: args.query }));
+          }
+          // Devolver resultado a Azure y continuar respuesta
+          if (azureWs.readyState === WebSocket.OPEN) {
+            azureWs.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id, output: result } }));
+            azureWs.send(JSON.stringify({ type: 'response.create' }));
+          }
+        } catch (err) {
+          console.error('[Realtime] Tool error:', err.message);
+        }
+        return; // No reenviar este evento al cliente
+      }
     } catch (_) {}
+
     if (clientWs.readyState === WebSocket.OPEN) clientWs.send(str);
   });
 
