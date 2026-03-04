@@ -167,11 +167,13 @@
       position: relative; flex-shrink: 0;
     }
     .card-img img {
+      position: absolute; top: 0; left: 0;
       width: 100%; height: 100%; object-fit: cover; object-position: top;
       display: block; transition: transform 0.3s;
     }
     .card:hover .card-img img { transform: scale(1.03); }
     .card-img-placeholder {
+      position: absolute; top: 0; left: 0;
       width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
       font-size: 2.5rem; font-weight: 700; color: var(--border);
       background: linear-gradient(135deg, var(--surface2), var(--surface));
