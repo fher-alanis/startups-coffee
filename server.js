@@ -471,7 +471,12 @@ wss.on('connection', (clientWs) => {
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
         turn_detection: { type: 'server_vad', silence_duration_ms: 600, threshold: 0.6 },
-        tools: [SEARCH_TOOL],
+        tools: [{
+          type: 'function',
+          name: SEARCH_TOOL.function.name,
+          description: SEARCH_TOOL.function.description,
+          parameters: SEARCH_TOOL.function.parameters
+        }],
         tool_choice: 'auto'
       }
     }));
