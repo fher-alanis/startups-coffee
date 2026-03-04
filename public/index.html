@@ -1330,13 +1330,13 @@ function pcm16ToBase64(buffer) {
 function handleRealtimeEvent(msg) {
   switch (msg.type) {
     case 'response.created':
-      // AI empieza a responder → silenciar mic y limpiar buffer de entrada
       aiSpeaking = true;
+      if (reactivateMicTimer) { clearTimeout(reactivateMicTimer); reactivateMicTimer = null; }
       if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
         voiceWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
       }
-      // Cancelar cualquier timer de reactivación pendiente
-      if (reactivateMicTimer) { clearTimeout(reactivateMicTimer); reactivateMicTimer = null; }
+      // Resetear el reloj de playback para que los chunks de esta respuesta lleguen limpios
+      if (playbackCtx) nextPlayTime = playbackCtx.currentTime;
       break;
     case 'conversation.item.input_audio_transcription.completed':
       if (msg.transcript && msg.transcript.trim()) {
