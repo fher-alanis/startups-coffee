@@ -75,6 +75,23 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS voice_logs (
+      id SERIAL PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      duration_seconds NUMERIC(8,2) DEFAULT 0,
+      turns INTEGER DEFAULT 0,
+      user_transcripts TEXT,
+      assistant_transcripts TEXT,
+      input_tokens INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      input_audio_tokens INTEGER DEFAULT 0,
+      output_audio_tokens INTEGER DEFAULT 0,
+      input_text_tokens INTEGER DEFAULT 0,
+      output_text_tokens INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
   // Seed some sample approved codes for demo
   const { rows } = await db.query('SELECT COUNT(*) FROM codes');
   if (parseInt(rows[0].count) === 0) {
@@ -453,10 +470,20 @@ app.get('/api/debug/realtime', (req, res) => {
   res.json({ azureUrl, deployment: AZURE_REALTIME_DEPLOYMENT, endpoint: AZURE_REALTIME_ENDPOINT });
 });
 
-wss.on('connection', (clientWs) => {
+wss.on('connection', (clientWs, req) => {
   const azureHost = new URL(AZURE_REALTIME_ENDPOINT).hostname;
   const azureUrl = `wss://${azureHost}/openai/realtime?api-version=2024-10-01-preview&deployment=${AZURE_REALTIME_DEPLOYMENT}`;
   console.log('[Realtime] Connecting to:', azureUrl);
+
+  // Acumulador de datos para esta sesión
+  const session = {
+    id: `voice_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+    startedAt: Date.now(),
+    turns: 0,
+    userTranscripts: [],
+    assistantTranscripts: [],
+    usage: { input_tokens: 0, output_tokens: 0, input_audio_tokens: 0, output_audio_tokens: 0, input_text_tokens: 0, output_text_tokens: 0 }
+  };
 
   const azureWs = new WebSocket(azureUrl, { headers: { 'api-key': AZURE_REALTIME_KEY } });
 
@@ -491,8 +518,25 @@ wss.on('connection', (clientWs) => {
         clientWs.send(JSON.stringify({ type: 'ready' }));
       }
 
-      // Log para debug de tool calls
-      if (msg.type && msg.type.startsWith('response.')) console.log('[Realtime event]', msg.type, msg.item?.type || '');
+      // Capturar transcripción del usuario
+      if (msg.type === 'conversation.item.input_audio_transcription.completed' && msg.transcript?.trim()) {
+        session.userTranscripts.push(msg.transcript.trim());
+      }
+      // Capturar transcripción del asistente
+      if (msg.type === 'response.audio_transcript.done' && msg.transcript?.trim()) {
+        session.assistantTranscripts.push(msg.transcript.trim());
+        session.turns++;
+      }
+      // Capturar usage de cada respuesta
+      if (msg.type === 'response.done' && msg.response?.usage) {
+        const u = msg.response.usage;
+        session.usage.input_tokens  += u.input_tokens  || 0;
+        session.usage.output_tokens += u.output_tokens || 0;
+        session.usage.input_audio_tokens  += u.input_token_details?.audio_tokens  || 0;
+        session.usage.output_audio_tokens += u.output_token_details?.audio_tokens || 0;
+        session.usage.input_text_tokens   += u.input_token_details?.text_tokens   || 0;
+        session.usage.output_text_tokens  += u.output_token_details?.text_tokens  || 0;
+      }
 
       // Manejar tool calls del Realtime API
       if (msg.type === 'response.output_item.done' && msg.item?.type === 'function_call') {
@@ -523,7 +567,22 @@ wss.on('connection', (clientWs) => {
     if (azureWs.readyState === WebSocket.OPEN) azureWs.send(data.toString());
   });
 
-  clientWs.on('close', () => { if (azureWs.readyState !== WebSocket.CLOSED) azureWs.close(); });
+  function saveVoiceLog() {
+    if (session.turns === 0 && session.userTranscripts.length === 0) return; // no hubo conversación real
+    const u = session.usage;
+    const audioTokensTotal = u.input_audio_tokens + u.output_audio_tokens;
+    const durationSeconds = +(audioTokensTotal / 100).toFixed(2); // ~100 tokens = 1 segundo
+    db.query(
+      `INSERT INTO voice_logs (session_id, duration_seconds, turns, user_transcripts, assistant_transcripts,
+        input_tokens, output_tokens, input_audio_tokens, output_audio_tokens, input_text_tokens, output_text_tokens)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [session.id, durationSeconds, session.turns,
+       session.userTranscripts.join(' | '), session.assistantTranscripts.join(' | '),
+       u.input_tokens, u.output_tokens, u.input_audio_tokens, u.output_audio_tokens, u.input_text_tokens, u.output_text_tokens]
+    ).catch(err => console.error('[Realtime] voice_log error:', err.message));
+  }
+
+  clientWs.on('close', () => { saveVoiceLog(); if (azureWs.readyState !== WebSocket.CLOSED) azureWs.close(); });
   azureWs.on('close', () => { if (clientWs.readyState === WebSocket.OPEN) clientWs.close(); });
   azureWs.on('error', err => {
     console.error('[Realtime] Azure WS error:', err.message, err.code, err.statusCode);
