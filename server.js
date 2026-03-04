@@ -333,14 +333,16 @@ app.post('/api/chat', (req, res) => {
   );
 });
 
+const NO_CACHE = { 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' };
+
 // ── Admin page ────────────────────────────────────────────────────────────────
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  res.set(NO_CACHE).sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // ── SPA fallback ─────────────────────────────────────────────────────────────
 app.get('/{*path}', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.set(NO_CACHE).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
