@@ -34,25 +34,25 @@
     a.nav-btn { text-decoration: none; display: inline-flex; align-items: center; }
 
     .wrapper { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
-
-    /* ── Header section ── */
     .page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
     .page-header h1 { font-size: 1.4rem; font-weight: 700; }
     .badge { font-size: 0.75rem; font-weight: 600; padding: 4px 12px; border-radius: var(--radius-pill); }
     .badge.pending { background: #2a1e00; color: #fbbf24; border: 1px solid #fbbf2433; }
-    .badge.zero { background: var(--green-bg); color: var(--green); border: 1px solid var(--green)33; }
 
-    /* ── Tabs ── */
-    .tabs { display: flex; gap: 6px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+    .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
     .tab { padding: 10px 18px; font-size: 0.84rem; font-weight: 500; cursor: pointer; background: none; border: none; color: var(--text-muted); font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
 
-    /* ── List ── */
+    .stats-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; flex: 1; min-width: 120px; }
+    .stat-n { font-size: 1.6rem; font-weight: 700; color: var(--orange); }
+    .stat-l { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
     .code-list { display: flex; flex-direction: column; gap: 10px; }
     .code-item {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); display: flex; gap: 0; overflow: hidden;
+      border-radius: var(--radius); display: flex; overflow: hidden;
       transition: border-color 0.15s;
     }
     .code-item:hover { border-color: var(--text-dim); }
@@ -60,46 +60,110 @@
     .code-item.pending-item { border-left: 3px solid #fbbf24; }
 
     .code-thumb {
-      width: 120px; flex-shrink: 0; background: var(--surface2);
+      width: 130px; flex-shrink: 0; background: var(--surface2);
       display: flex; align-items: center; justify-content: center;
       font-size: 2rem; font-weight: 700; color: var(--border);
-      border-right: 1px solid var(--border); overflow: hidden;
+      border-right: 1px solid var(--border); overflow: hidden; position: relative;
     }
     .code-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .thumb-auto-badge {
+      position: absolute; bottom: 4px; left: 0; right: 0;
+      text-align: center; font-size: 0.6rem; color: var(--text-dim);
+      background: rgba(0,0,0,0.6); padding: 2px 4px;
+    }
 
     .code-info { flex: 1; padding: 14px 16px; min-width: 0; }
-    .code-info-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
     .code-company { font-size: 0.78rem; color: var(--text-muted); }
-    .code-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
-    .code-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .code-title { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .code-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .tag { padding: 3px 10px; border-radius: var(--radius-pill); font-size: 0.72rem; font-weight: 500; white-space: nowrap; }
     .tag.type-referido { background: #1e3a2f; color: #4ade80; }
     .tag.type-perk { background: #1e1e3a; color: #818cf8; }
     .tag.cat { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
     .code-code { font-family: monospace; font-size: 0.85rem; color: var(--orange); background: var(--surface2); padding: 3px 8px; border-radius: 5px; border: 1px dashed var(--border); }
-    .code-author { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
     .code-discount { font-size: 0.75rem; color: var(--orange); font-weight: 600; }
+    .code-author { font-size: 0.75rem; color: var(--text-dim); margin-top: 6px; }
 
-    .code-actions { display: flex; flex-direction: column; gap: 8px; padding: 14px; justify-content: center; flex-shrink: 0; min-width: 120px; }
-    .action-btn { padding: 8px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit; border: none; transition: all 0.15s; text-align: center; }
+    .code-actions { display: flex; flex-direction: column; gap: 7px; padding: 12px; justify-content: center; flex-shrink: 0; min-width: 130px; }
+    .action-btn { padding: 7px 12px; border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; border: none; transition: all 0.15s; text-align: center; text-decoration: none; display: block; }
     .action-btn.approve { background: var(--green-bg); color: var(--green); border: 1px solid var(--green)44; }
     .action-btn.approve:hover { background: var(--green); color: #000; }
     .action-btn.reject { background: var(--red-bg); color: var(--red); border: 1px solid var(--red)44; }
     .action-btn.reject:hover { background: var(--red); color: #fff; }
+    .action-btn.edit { background: var(--orange-glow); color: var(--orange); border: 1px solid var(--orange)44; }
+    .action-btn.edit:hover { background: var(--orange); color: #fff; }
     .action-btn.view { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
     .action-btn.view:hover { color: var(--text); }
     .action-btn:disabled { opacity: 0.4; cursor: default; }
+    .approved-label { font-size: 0.75rem; color: var(--green); font-weight: 500; }
 
-    .approved-label { font-size: 0.75rem; color: var(--green); font-weight: 500; display: flex; align-items: center; gap: 4px; }
-
-    /* ── Empty ── */
     .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); }
     .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    #loading { text-align: center; padding: 60px; color: var(--text-dim); }
 
-    /* ── Loading ── */
-    #loading { text-align: center; padding: 60px; color: var(--text-dim); font-size: 0.9rem; }
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px); z-index: 500;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); width: 100%; max-width: 560px;
+      max-height: 92vh; overflow-y: auto;
+      transform: translateY(12px); transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-header {
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px; position: sticky; top: 0;
+      background: var(--surface); z-index: 1;
+    }
+    .modal-header h2 { font-size: 1rem; font-weight: 600; flex: 1; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 1.2rem; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 20px 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
 
-    /* ── Toast ── */
+    /* Image preview in modal */
+    .img-preview-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+    .img-preview-box {
+      width: 100px; height: 70px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface2);
+      overflow: hidden; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; color: var(--border);
+    }
+    .img-preview-box img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .img-preview-info { flex: 1; }
+    .img-preview-info small { font-size: 0.75rem; color: var(--text-dim); line-height: 1.5; }
+    .auto-preview-btn {
+      font-size: 0.75rem; color: var(--orange); background: none; border: none;
+      cursor: pointer; text-decoration: underline; padding: 0; font-family: inherit;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 500; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 9px 12px;
+      color: var(--text); font-size: 0.875rem; outline: none; font-family: inherit;
+    }
+    .form-group input::placeholder, .form-group textarea::placeholder { color: var(--text-dim); }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--orange); }
+    .form-group select option { background: var(--surface2); }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-section { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin: 18px 0 10px; }
+
+    .btn { padding: 9px 18px; border-radius: var(--radius-pill); font-size: 0.84rem; font-weight: 500; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; }
+    .btn.primary { background: var(--orange); color: #fff; }
+    .btn.primary:hover { background: var(--orange-dim); }
+    .btn.ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn.ghost:hover { color: var(--text); }
+
     .toast {
       position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
       background: var(--surface2); border: 1px solid var(--border);
@@ -110,12 +174,6 @@
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .toast.success { border-color: var(--green)66; color: var(--green); }
     .toast.error { border-color: var(--red)66; color: var(--red); }
-
-    /* ── Stats ── */
-    .stats-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; flex: 1; min-width: 120px; }
-    .stat-n { font-size: 1.6rem; font-weight: 700; color: var(--orange); }
-    .stat-l { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -125,7 +183,7 @@
   <span class="nav-tag">⚙ Admin</span>
   <div class="nav-right">
     <span id="nav-name" style="font-size:0.82rem;color:var(--text-muted)"></span>
-    <a href="/" class="nav-btn ghost">← Volver al portal</a>
+    <a href="/" class="nav-btn ghost">← Portal</a>
     <button class="nav-btn ghost" onclick="logout()">Salir</button>
   </div>
 </nav>
@@ -138,38 +196,103 @@
     <span class="badge pending" id="pending-badge" style="display:none"></span>
   </div>
 
-  <!-- Stats -->
   <div class="stats-row">
-    <div class="stat-card"><div class="stat-n" id="s-total">—</div><div class="stat-l">Total códigos</div></div>
+    <div class="stat-card"><div class="stat-n" id="s-total">—</div><div class="stat-l">Total</div></div>
     <div class="stat-card"><div class="stat-n" id="s-approved">—</div><div class="stat-l">Aprobados</div></div>
     <div class="stat-card"><div class="stat-n" id="s-pending">—</div><div class="stat-l">Pendientes</div></div>
     <div class="stat-card"><div class="stat-n" id="s-refs">—</div><div class="stat-l">Referidos</div></div>
     <div class="stat-card"><div class="stat-n" id="s-perks">—</div><div class="stat-l">Perks</div></div>
   </div>
 
-  <!-- Tabs -->
   <div class="tabs">
     <button class="tab active" onclick="showTab('pending')">Pendientes <span id="tab-pending-count"></span></button>
     <button class="tab" onclick="showTab('all')">Todos los códigos</button>
   </div>
 
-  <!-- List -->
   <div class="code-list" id="code-list"></div>
+</div>
+
+<!-- ── MODAL EDITAR ── -->
+<div class="modal-overlay" id="modal-edit" onclick="closeIfOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Editar código</h2>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="e-id">
+
+      <!-- Image section -->
+      <div class="form-section">Imagen / Screenshot</div>
+      <div class="img-preview-row">
+        <div class="img-preview-box" id="img-preview-box">
+          <span id="img-preview-letter"></span>
+          <img id="img-preview-img" style="display:none" alt="">
+        </div>
+        <div class="img-preview-info">
+          <small>
+            Puedes pegar la URL de un screenshot manual, o usar el botón para generar uno automático desde la URL de la empresa (via thum.io, gratis).<br><br>
+            <button class="auto-preview-btn" onclick="useAutoScreenshot()">↺ Generar screenshot automático</button>
+          </small>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>URL de imagen / screenshot</label>
+        <input type="url" id="e-img" placeholder="https://... (URL directa de imagen)" oninput="previewImg()">
+      </div>
+
+      <!-- Code info -->
+      <div class="form-section">Información del código</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="e-type">
+            <option value="referido">💸 Referido</option>
+            <option value="perk">🚀 Perk</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <select id="e-cat">
+            <option value="ia-automatizacion">🤖 IA / Automatización</option>
+            <option value="cloud-infra">☁️ Cloud / Infra</option>
+            <option value="desarrollo-nocode">🧩 Desarrollo NoCode</option>
+            <option value="marketing">📣 Marketing</option>
+            <option value="imagen-video">🎬 Imagen / Video</option>
+            <option value="rrhh">👥 RRHH</option>
+            <option value="finanzas">💳 Finanzas</option>
+            <option value="diseno">🎨 Diseño</option>
+            <option value="legal">⚖️ Legal</option>
+            <option value="productividad">⚡ Productividad</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>Empresa</label><input type="text" id="e-company" placeholder="Nombre de la empresa"></div>
+      <div class="form-group"><label>Título</label><input type="text" id="e-title" placeholder="Título del código"></div>
+      <div class="form-group"><label>Descripción</label><textarea id="e-desc" placeholder="¿Qué obtiene el usuario?"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Código</label><input type="text" id="e-code"></div>
+        <div class="form-group"><label>Descuento</label><input type="text" id="e-discount" placeholder="ej. 20%, $50 crédito"></div>
+      </div>
+      <div class="form-group"><label>URL de la empresa</label><input type="url" id="e-url" placeholder="https://..."></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeEdit()">Cancelar</button>
+      <button class="btn primary" onclick="saveEdit()">Guardar cambios</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 const token = localStorage.getItem('sc_token');
-let pendingCodes = [];
-let allCodes = [];
-let currentTab = 'pending';
+let pendingCodes = [], allCodes = [], currentTab = 'pending';
 
 const CAT_LABELS = {
-  'ia-automatizacion': 'IA / Auto', 'cloud-infra': 'Cloud / Infra',
-  'desarrollo-nocode': 'NoCode Dev', 'marketing': 'Marketing',
-  'imagen-video': 'Imagen / Video', 'rrhh': 'RRHH', 'finanzas': 'Finanzas',
-  'diseno': 'Diseño', 'legal': 'Legal', 'productividad': 'Productividad',
+  'ia-automatizacion':'IA / Auto','cloud-infra':'Cloud / Infra','desarrollo-nocode':'NoCode Dev',
+  'marketing':'Marketing','imagen-video':'Imagen / Video','rrhh':'RRHH','finanzas':'Finanzas',
+  'diseno':'Diseño','legal':'Legal','productividad':'Productividad',
 };
 
 (async () => {
@@ -186,34 +309,28 @@ const CAT_LABELS = {
 })();
 
 async function loadData() {
-  const [rPending, rAll] = await Promise.all([
+  const [rP, rA] = await Promise.all([
     fetch('/api/admin/pending', { headers: { Authorization: `Bearer ${token}` } }),
     fetch('/api/admin/all-codes', { headers: { Authorization: `Bearer ${token}` } })
   ]);
-  pendingCodes = await rPending.json();
-  allCodes = await rAll.json();
-  updateStats();
-  renderList();
+  pendingCodes = await rP.json();
+  allCodes = await rA.json();
+  updateStats(); renderList();
 }
 
 function updateStats() {
-  const approved = allCodes.filter(c => c.approved).length;
-  const pending = allCodes.filter(c => !c.approved).length;
+  const appr = allCodes.filter(c => c.approved).length;
+  const pend = allCodes.filter(c => !c.approved).length;
   document.getElementById('s-total').textContent = allCodes.length;
-  document.getElementById('s-approved').textContent = approved;
-  document.getElementById('s-pending').textContent = pending;
+  document.getElementById('s-approved').textContent = appr;
+  document.getElementById('s-pending').textContent = pend;
   document.getElementById('s-refs').textContent = allCodes.filter(c => c.type === 'referido').length;
   document.getElementById('s-perks').textContent = allCodes.filter(c => c.type === 'perk').length;
   const badge = document.getElementById('pending-badge');
   const tCount = document.getElementById('tab-pending-count');
-  if (pending > 0) {
-    badge.textContent = `${pending} pendiente${pending > 1 ? 's' : ''}`;
-    badge.style.display = '';
-    tCount.textContent = `(${pending})`;
-  } else {
-    badge.style.display = 'none';
-    tCount.textContent = '';
-  }
+  badge.style.display = pend > 0 ? '' : 'none';
+  badge.textContent = `${pend} pendiente${pend > 1 ? 's' : ''}`;
+  tCount.textContent = pend > 0 ? `(${pend})` : '';
 }
 
 function showTab(tab) {
@@ -222,27 +339,33 @@ function showTab(tab) {
   renderList();
 }
 
+function screenshotUrl(url) {
+  if (!url) return '';
+  return `https://image.thum.io/get/width/600/crop/400/${encodeURIComponent(url)}`;
+}
+
 function renderList() {
   const list = document.getElementById('code-list');
   const codes = currentTab === 'pending' ? pendingCodes : allCodes;
   if (!codes.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">${currentTab === 'pending' ? '✅' : '📭'}</div>${currentTab === 'pending' ? 'No hay códigos pendientes' : 'No hay códigos aún'}</div>`;
+    list.innerHTML = `<div class="empty"><div class="empty-icon">${currentTab === 'pending' ? '✅' : '📭'}</div>${currentTab === 'pending' ? 'No hay pendientes' : 'Sin códigos'}</div>`;
     return;
   }
-  list.innerHTML = codes.map(c => `
+  list.innerHTML = codes.map(c => {
+    const imgSrc = c.company_image || (c.url ? screenshotUrl(c.url) : '');
+    const isAuto = !c.company_image && c.url;
+    return `
     <div class="code-item ${c.approved ? 'approved' : 'pending-item'}" id="item-${c.id}">
       <div class="code-thumb">
-        ${c.company_image
-          ? `<img src="${esc(c.company_image)}" alt="${esc(c.company)}" onerror="this.style.display='none';this.parentElement.textContent='${esc(c.company[0].toUpperCase())}'">`
-          : esc(c.company[0].toUpperCase())}
+        ${imgSrc
+          ? `<img src="${esc(imgSrc)}" alt="${esc(c.company)}" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.display='none');this.parentElement.querySelector('.thumb-letter').style.display='flex'">
+             ${isAuto ? '<div class="thumb-auto-badge">auto</div>' : ''}`
+          : ''}
+        <div class="thumb-letter" style="${imgSrc ? 'display:none' : 'display:flex;align-items:center;justify-content:center;width:100%;height:100%'}">${esc(c.company[0].toUpperCase())}</div>
       </div>
       <div class="code-info">
-        <div class="code-info-top">
-          <div>
-            <div class="code-company">${esc(c.company)}</div>
-            <div class="code-title">${esc(c.title)}</div>
-          </div>
-        </div>
+        <div class="code-company">${esc(c.company)}</div>
+        <div class="code-title">${esc(c.title)}</div>
         <div class="code-meta">
           <span class="tag type-${c.type}">${c.type === 'referido' ? '💸 Referido' : '🚀 Perk'}</span>
           <span class="tag cat">${CAT_LABELS[c.category] || c.category}</span>
@@ -250,7 +373,11 @@ function renderList() {
           ${c.discount ? `<span class="code-discount">${esc(c.discount)}</span>` : ''}
         </div>
         ${c.description ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;line-height:1.5">${esc(c.description)}</div>` : ''}
-        <div class="code-author">Por ${esc(c.author)} · ${new Date(c.created_at).toLocaleDateString('es-MX', {day:'numeric',month:'short',year:'numeric'})}${c.url ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-dim);text-decoration:none">${esc(c.url)}</a>` : ''}</div>
+        <div class="code-author">
+          Por ${esc(c.author)} · ${new Date(c.created_at).toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})}
+          ${c.url ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener" style="color:var(--text-dim)">${esc(c.url)}</a>` : ''}
+          ${c.company_image ? ` · <span style="color:var(--green);font-size:0.72rem">📷 imagen manual</span>` : isAuto ? ` · <span style="color:var(--text-dim);font-size:0.72rem">📷 auto</span>` : ''}
+        </div>
       </div>
       <div class="code-actions">
         ${c.approved
@@ -258,10 +385,11 @@ function renderList() {
              <button class="action-btn reject" onclick="reject(${c.id})">Eliminar</button>`
           : `<button class="action-btn approve" onclick="approve(${c.id})">✓ Aprobar</button>
              <button class="action-btn reject" onclick="reject(${c.id})">✗ Rechazar</button>`}
+        <button class="action-btn edit" onclick="openEdit(${c.id})">✎ Editar</button>
         ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener" class="action-btn view">Ver sitio</a>` : ''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 async function approve(id) {
@@ -270,13 +398,13 @@ async function approve(id) {
   try {
     const r = await fetch(`/api/admin/codes/${id}/approve`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) throw new Error();
-    showToast('Código aprobado y publicado', 'success');
+    showToast('✓ Publicado', 'success');
     await loadData();
   } catch { showToast('Error al aprobar', 'error'); if (btn) btn.disabled = false; }
 }
 
 async function reject(id) {
-  if (!confirm('¿Seguro que deseas eliminar este código? Esta acción no se puede deshacer.')) return;
+  if (!confirm('¿Eliminar este código? No se puede deshacer.')) return;
   try {
     const r = await fetch(`/api/admin/codes/${id}/reject`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) throw new Error();
@@ -285,10 +413,84 @@ async function reject(id) {
   } catch { showToast('Error al eliminar', 'error'); }
 }
 
-function logout() {
-  localStorage.removeItem('sc_token');
-  window.location.href = '/';
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEdit(id) {
+  const c = allCodes.find(x => x.id === id) || pendingCodes.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('e-id').value = c.id;
+  document.getElementById('e-company').value = c.company || '';
+  document.getElementById('e-title').value = c.title || '';
+  document.getElementById('e-desc').value = c.description || '';
+  document.getElementById('e-code').value = c.code || '';
+  document.getElementById('e-discount').value = c.discount || '';
+  document.getElementById('e-url').value = c.url || '';
+  document.getElementById('e-img').value = c.company_image || '';
+  document.getElementById('e-type').value = c.type || 'referido';
+  document.getElementById('e-cat').value = c.category || 'ia-automatizacion';
+  document.getElementById('img-preview-letter').textContent = c.company[0].toUpperCase();
+  updateImgPreview(c.company_image || (c.url ? screenshotUrl(c.url) : ''));
+  document.getElementById('modal-edit').classList.add('open');
 }
+
+function closeEdit() { document.getElementById('modal-edit').classList.remove('open'); }
+function closeIfOverlay(e) { if (e.target.id === 'modal-edit') closeEdit(); }
+
+function previewImg() {
+  const val = document.getElementById('e-img').value.trim();
+  updateImgPreview(val);
+}
+
+function updateImgPreview(src) {
+  const img = document.getElementById('img-preview-img');
+  const letter = document.getElementById('img-preview-letter');
+  if (src) {
+    img.src = src;
+    img.style.display = '';
+    img.onerror = () => { img.style.display = 'none'; letter.style.display = ''; };
+    letter.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    img.src = '';
+    letter.style.display = '';
+  }
+}
+
+function useAutoScreenshot() {
+  const url = document.getElementById('e-url').value.trim();
+  if (!url) { showToast('Primero ingresa la URL de la empresa', 'error'); return; }
+  const autoUrl = screenshotUrl(url);
+  document.getElementById('e-img').value = autoUrl;
+  updateImgPreview(autoUrl);
+  showToast('Screenshot automático aplicado', 'success');
+}
+
+async function saveEdit() {
+  const id = document.getElementById('e-id').value;
+  const payload = {
+    company: document.getElementById('e-company').value,
+    title: document.getElementById('e-title').value,
+    description: document.getElementById('e-desc').value,
+    code: document.getElementById('e-code').value,
+    discount: document.getElementById('e-discount').value,
+    url: document.getElementById('e-url').value,
+    company_image: document.getElementById('e-img').value || null,
+    type: document.getElementById('e-type').value,
+    category: document.getElementById('e-cat').value,
+  };
+  try {
+    const r = await fetch(`/api/admin/codes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error();
+    showToast('Cambios guardados', 'success');
+    closeEdit();
+    await loadData();
+  } catch { showToast('Error al guardar', 'error'); }
+}
+
+function logout() { localStorage.removeItem('sc_token'); window.location.href = '/'; }
 
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');

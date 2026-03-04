@@ -193,6 +193,28 @@ app.get('/api/admin/all-codes', authMiddleware, adminOnly, async (req, res) => {
   } catch { res.status(500).json({ error: 'Error' }); }
 });
 
+app.put('/api/admin/codes/:id', authMiddleware, adminOnly, async (req, res) => {
+  const { company, title, description, code, url, discount, company_image, type, category } = req.body;
+  try {
+    const { rows } = await db.query(
+      `UPDATE codes SET
+        company = COALESCE($1, company),
+        title = COALESCE($2, title),
+        description = COALESCE($3, description),
+        code = COALESCE($4, code),
+        url = COALESCE($5, url),
+        discount = COALESCE($6, discount),
+        company_image = $7,
+        type = COALESCE($8, type),
+        category = COALESCE($9, category)
+       WHERE id = $10 RETURNING *`,
+      [company, title, description, code, url, discount, company_image || null, type, category, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(rows[0]);
+  } catch { res.status(500).json({ error: 'Error al actualizar' }); }
+});
+
 // ── Codes ────────────────────────────────────────────────────────────────────
 app.get('/api/codes', async (req, res) => {
   const { type, category, search } = req.query;

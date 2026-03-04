@@ -675,10 +675,10 @@ function renderCards() {
   grid.innerHTML = codes.map(c => `
     <div class="card">
       <div class="card-img">
-        ${c.company_image
-          ? `<img src="${escHtml(c.company_image)}" alt="${escHtml(c.company)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        ${(c.company_image || c.url)
+          ? `<img src="${escHtml(c.company_image || screenshotUrl(c.url))}" alt="${escHtml(c.company)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
           : ''}
-        <div class="card-img-placeholder" style="${c.company_image ? 'display:none' : ''}">${escHtml(c.company[0].toUpperCase())}</div>
+        <div class="card-img-placeholder" style="${(c.company_image || c.url) ? 'display:none' : ''}">${escHtml(c.company[0].toUpperCase())}</div>
       </div>
       <div class="card-body">
         <div class="card-top">
@@ -709,6 +709,11 @@ function renderCards() {
 
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function screenshotUrl(url) {
+  if (!url) return '';
+  return `https://image.thum.io/get/width/600/crop/400/${encodeURIComponent(url)}`;
 }
 
 function copyCode(code, btn) {
