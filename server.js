@@ -443,7 +443,7 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 const REALTIME_SYSTEM = `Eres la asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
-Cuando el usuario pregunte por herramientas, empresas o descuentos específicos, SIEMPRE usa la función search_codes para buscar en la base de datos real antes de responder.
+Usa search_codes SOLO cuando el usuario mencione explícitamente una herramienta, empresa o categoría de descuento. No lo uses para saludos ni preguntas generales.
 Eres amigable, concisa y útil. Hablas en español neutro.`;
 
 // ── Debug endpoint ────────────────────────────────────────────────────────────
@@ -495,13 +495,8 @@ wss.on('connection', (clientWs) => {
       if (msg.type && msg.type.startsWith('response.')) console.log('[Realtime event]', msg.type, msg.item?.type || '');
 
       // Manejar tool calls del Realtime API
-      const isFunctionCallDone =
-        (msg.type === 'response.output_item.done' && msg.item?.type === 'function_call') ||
-        (msg.type === 'response.function_call_arguments.done' && msg.call_id);
-      if (isFunctionCallDone) {
-        const call_id = msg.item?.call_id || msg.call_id;
-        const name = msg.item?.name || 'search_codes';
-        const argsStr = msg.item?.arguments || msg.arguments;
+      if (msg.type === 'response.output_item.done' && msg.item?.type === 'function_call') {
+        const { call_id, name, arguments: argsStr } = msg.item;
         try {
           const args = JSON.parse(argsStr);
           const result = await executeSearchCodes(args);
@@ -533,7 +528,7 @@ wss.on('connection', (clientWs) => {
   azureWs.on('error', err => {
     console.error('[Realtime] Azure WS error:', err.message, err.code, err.statusCode);
     if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(JSON.stringify({ type: 'error', message: err.message }));
+      clientWs.send(JSON.stringify({ type: 'error', message: err.message || String(err) || 'Error de conexión con Azure' }));
       clientWs.close();
     }
   });
