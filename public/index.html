@@ -412,24 +412,29 @@
     }
     .step-card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 32px 28px;
-      aspect-ratio: 1; display: flex; flex-direction: column;
-      text-align: left; transition: border-color 0.2s, box-shadow 0.2s;
+      border-radius: var(--radius); overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .step-card:hover { border-color: var(--orange); box-shadow: var(--shadow); }
-    .step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+    .step-img {
+      width: 100%; height: 190px; object-fit: cover; display: block;
+    }
+    .step-body { padding: 24px; text-align: center; flex: 1; }
+    .step-header {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; margin-bottom: 10px;
+    }
     .step-num {
-      width: 32px; height: 32px; background: var(--orange); color: #fff;
-      border-radius: 50%; font-size: 0.85rem; font-weight: 700; flex-shrink: 0;
+      width: 28px; height: 28px; background: var(--orange); color: #fff;
+      border-radius: 50%; font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
     }
     .step-card h3 { font-size: 1rem; font-weight: 600; color: var(--text); line-height: 1.3; }
-    .step-icon { font-size: 2.4rem; margin-bottom: 16px; }
-    .step-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.65; }
+    .step-card p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.65; }
     .steps-cta { margin-top: 36px; }
     @media (max-width: 700px) {
       .steps-grid { grid-template-columns: 1fr; }
-      .step-card { aspect-ratio: unset; }
     }
 
     /* ── Guest submit banner ── */
@@ -576,28 +581,34 @@
   </div>
   <div class="steps-grid">
     <div class="step-card">
-      <div class="step-header">
-        <div class="step-num">1</div>
-        <h3>Sube tu código</h3>
+      <img class="step-img" src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&h=380&fit=crop&auto=format&q=80" alt="Sube tu código">
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-num">1</div>
+          <h3>Sube tu código</h3>
+        </div>
+        <p>Publica tu código de referido o descuento en segundos. Incluso sin crear una cuenta.</p>
       </div>
-      <div class="step-icon">📤</div>
-      <p>Publica tu código de referido o descuento en segundos. Incluso sin crear una cuenta.</p>
     </div>
     <div class="step-card">
-      <div class="step-header">
-        <div class="step-num">2</div>
-        <h3>Llega a más emprendedores</h3>
+      <img class="step-img" src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=380&fit=crop&auto=format&q=80" alt="Llega a más emprendedores">
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-num">2</div>
+          <h3>Llega a más emprendedores</h3>
+        </div>
+        <p>Tu código aparece junto a las marcas más usadas por startups en toda Latinoamérica.</p>
       </div>
-      <div class="step-icon">🌐</div>
-      <p>Tu código aparece junto a las marcas más usadas por startups en toda Latinoamérica.</p>
     </div>
     <div class="step-card">
-      <div class="step-header">
-        <div class="step-num">3</div>
-        <h3>Tú y otros ahorran</h3>
+      <img class="step-img" src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=600&h=380&fit=crop&auto=format&q=80" alt="Tú y otros ahorran">
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-num">3</div>
+          <h3>Tú y otros ahorran</h3>
+        </div>
+        <p>Cada persona que use tu código obtiene un descuento o cashback. Tú recibes recompensas.</p>
       </div>
-      <div class="step-icon">💸</div>
-      <p>Cada persona que use tu código obtiene un descuento o cashback. Tú recibes recompensas.</p>
     </div>
   </div>
   <div class="steps-cta">
