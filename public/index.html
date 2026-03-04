@@ -1191,10 +1191,18 @@ function triggerUISearch(query) {
   const input = document.getElementById('search-input');
   if (!input) return;
   input.value = query;
-  onSearch(); // dispara el filtro existente de la página
-  // Scroll suave a la sección de resultados
-  const grid = document.getElementById('codes-grid') || document.querySelector('.codes-section');
-  if (grid) setTimeout(() => grid.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+  onSearch();
+  // Mostrar indicador en el chat (visible en texto y voz)
+  const d = document.createElement('div');
+  d.className = 'msg voice-status';
+  d.textContent = '🔍 Mostrando resultados para: ' + query;
+  chatMsgs.appendChild(d);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+  // Scroll a resultados
+  setTimeout(() => {
+    const section = document.getElementById('cards-grid');
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 400);
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────

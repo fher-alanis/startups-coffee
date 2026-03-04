@@ -443,7 +443,7 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 const REALTIME_SYSTEM = `Eres la asistente de startups.coffee, un portal de códigos de referido y descuentos para emprendedores y startups.
-Ayudas a los usuarios a encontrar herramientas, recursos y descuentos útiles para sus proyectos.
+Cuando el usuario pregunte por herramientas, empresas o descuentos específicos, SIEMPRE usa la función search_codes para buscar en la base de datos real antes de responder.
 Eres amigable, concisa y útil. Hablas en español neutro.`;
 
 // ── Debug endpoint ────────────────────────────────────────────────────────────
@@ -491,9 +491,17 @@ wss.on('connection', (clientWs) => {
         clientWs.send(JSON.stringify({ type: 'ready' }));
       }
 
+      // Log para debug de tool calls
+      if (msg.type && msg.type.startsWith('response.')) console.log('[Realtime event]', msg.type, msg.item?.type || '');
+
       // Manejar tool calls del Realtime API
-      if (msg.type === 'response.output_item.done' && msg.item?.type === 'function_call') {
-        const { call_id, name, arguments: argsStr } = msg.item;
+      const isFunctionCallDone =
+        (msg.type === 'response.output_item.done' && msg.item?.type === 'function_call') ||
+        (msg.type === 'response.function_call_arguments.done' && msg.call_id);
+      if (isFunctionCallDone) {
+        const call_id = msg.item?.call_id || msg.call_id;
+        const name = msg.item?.name || 'search_codes';
+        const argsStr = msg.item?.arguments || msg.arguments;
         try {
           const args = JSON.parse(argsStr);
           const result = await executeSearchCodes(args);
