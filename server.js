@@ -413,16 +413,22 @@ wss.on('connection', (clientWs) => {
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: { type: 'server_vad', silence_duration_ms: 800, threshold: 0.5 }
+        turn_detection: { type: 'server_vad', silence_duration_ms: 600, threshold: 0.6 }
       }
     }));
-    if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(JSON.stringify({ type: 'ready' }));
-    }
+    // No enviamos 'ready' aquí — esperamos a session.updated de Azure
   });
 
   azureWs.on('message', data => {
-    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data.toString());
+    const str = data.toString();
+    // Notificar al cliente que está listo solo cuando Azure confirme la sesión
+    try {
+      const msg = JSON.parse(str);
+      if (msg.type === 'session.updated' && clientWs.readyState === WebSocket.OPEN) {
+        clientWs.send(JSON.stringify({ type: 'ready' }));
+      }
+    } catch (_) {}
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(str);
   });
 
   clientWs.on('message', data => {

@@ -1247,6 +1247,7 @@ const voiceBtn = document.getElementById('voice-btn');
 let voiceWs = null, micStream = null, audioCtx = null, scriptProc = null;
 let playbackCtx = null, nextPlayTime = 0, callActive = false;
 let currentBotDiv = null, currentBotText = '';
+let aiSpeaking = false; // true mientras el AI está generando audio → silencia el mic
 
 voiceBtn.addEventListener('click', () => { callActive ? stopCall() : startCall(); });
 
@@ -1273,11 +1274,14 @@ async function startCall() {
     if (msg.type === 'ready') {
       appendVoiceStatus('Llamada activa — habla ahora 🎙️');
       startMicCapture();
+    } else if (msg.type === 'error') {
+      appendVoiceStatus('Error: ' + msg.message);
+      stopCall();
     } else {
       handleRealtimeEvent(msg);
     }
   };
-  voiceWs.onerror = () => { showToast('Error en la llamada', 'error'); stopCall(); };
+  voiceWs.onerror = (e) => { appendVoiceStatus('WS error: ' + (e.message || 'conexión fallida')); stopCall(); };
   voiceWs.onclose = () => { if (callActive) stopCall(); };
 }
 
@@ -1291,7 +1295,7 @@ function stopCall() {
   if (voiceWs && voiceWs.readyState === WebSocket.OPEN) voiceWs.close();
   voiceWs = null;
   if (playbackCtx) { playbackCtx.close(); playbackCtx = null; }
-  nextPlayTime = 0; currentBotDiv = null; currentBotText = '';
+  nextPlayTime = 0; currentBotDiv = null; currentBotText = ''; aiSpeaking = false;
   appendVoiceStatus('Llamada finalizada');
 }
 
@@ -1302,7 +1306,7 @@ function startMicCapture() {
   source.connect(scriptProc);
   scriptProc.connect(audioCtx.destination);
   scriptProc.onaudioprocess = e => {
-    if (!callActive || !voiceWs || voiceWs.readyState !== WebSocket.OPEN) return;
+    if (!callActive || !voiceWs || voiceWs.readyState !== WebSocket.OPEN || aiSpeaking) return;
     const f32 = e.inputBuffer.getChannelData(0);
     const i16 = new Int16Array(f32.length);
     for (let i = 0; i < f32.length; i++) {
@@ -1322,6 +1326,13 @@ function pcm16ToBase64(buffer) {
 
 function handleRealtimeEvent(msg) {
   switch (msg.type) {
+    case 'response.created':
+      // AI empieza a responder → silenciar mic y limpiar buffer de entrada
+      aiSpeaking = true;
+      if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
+        voiceWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+      }
+      break;
     case 'conversation.item.input_audio_transcription.completed':
       if (msg.transcript && msg.transcript.trim()) {
         const d = document.createElement('div');
@@ -1346,6 +1357,7 @@ function handleRealtimeEvent(msg) {
       if (msg.delta) playAudioChunk(msg.delta);
       break;
     case 'response.done':
+      aiSpeaking = false;
       currentBotDiv = null; currentBotText = '';
       break;
   }
