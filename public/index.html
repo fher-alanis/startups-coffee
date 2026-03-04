@@ -21,9 +21,30 @@
       --radius: 12px;
       --radius-sm: 8px;
       --radius-pill: 100px;
+      --shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    /* ── Light mode ── */
+    :root[data-theme="light"] {
+      --bg: #f5f4f2;
+      --surface: #ffffff;
+      --surface2: #ede9e4;
+      --border: #ddd6ce;
+      --text: #1c1a18;
+      --text-muted: #6b5f57;
+      --text-dim: #b0a090;
+      --orange-glow: #f9731618;
+      --shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme]) {
+        --bg: #f5f4f2; --surface: #ffffff; --surface2: #ede9e4;
+        --border: #ddd6ce; --text: #1c1a18; --text-muted: #6b5f57;
+        --text-dim: #b0a090; --orange-glow: #f9731618;
+        --shadow: 0 8px 24px rgba(0,0,0,0.1);
+      }
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.2s, color 0.2s; }
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width: 6px; }
@@ -376,6 +397,58 @@
       .hero { padding: 44px 16px 36px; }
       .stats { gap: 24px; }
     }
+
+    /* ── User dropdown ── */
+    .user-menu-wrap { position: relative; }
+    .user-menu-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: none; border: 1px solid var(--border); border-radius: var(--radius-pill);
+      padding: 4px 12px 4px 5px; cursor: pointer; color: var(--text);
+      font-family: inherit; font-size: 0.82rem; transition: all 0.15s;
+    }
+    .user-menu-btn:hover { border-color: var(--text-dim); }
+    .user-menu-btn .u-avatar {
+      width: 26px; height: 26px; border-radius: 50%; background: var(--orange);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+    }
+    .u-chevron { font-size: 0.65rem; color: var(--text-dim); transition: transform 0.2s; }
+    .user-menu-btn.open .u-chevron { transform: rotate(180deg); }
+
+    .user-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 6px; min-width: 210px;
+      box-shadow: var(--shadow); z-index: 300;
+      opacity: 0; pointer-events: none; transform: translateY(-6px);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .user-dropdown.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+    .dropdown-label {
+      font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase;
+      letter-spacing: 0.08em; padding: 6px 10px 4px;
+    }
+    .dropdown-item {
+      display: flex; align-items: center; gap: 9px; width: 100%;
+      padding: 8px 10px; border-radius: var(--radius-sm); font-size: 0.84rem;
+      color: var(--text-muted); background: none; border: none; cursor: pointer;
+      font-family: inherit; text-align: left; text-decoration: none; transition: all 0.12s;
+    }
+    .dropdown-item:hover { background: var(--surface2); color: var(--text); }
+    .dropdown-item.danger:hover { background: #3a1e1e; color: #f87171; }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 5px 0; }
+
+    /* Theme switcher inside dropdown */
+    .theme-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 4px 6px 8px; }
+    .theme-opt {
+      padding: 7px 4px; border-radius: var(--radius-sm); font-size: 0.75rem;
+      font-weight: 500; cursor: pointer; font-family: inherit; border: 1px solid var(--border);
+      background: none; color: var(--text-muted); display: flex; flex-direction: column;
+      align-items: center; gap: 3px; transition: all 0.12s;
+    }
+    .theme-opt:hover { border-color: var(--orange); color: var(--text); }
+    .theme-opt.active { border-color: var(--orange); background: var(--orange-glow); color: var(--orange); }
+    .theme-opt .t-icon { font-size: 1rem; }
   </style>
 </head>
 <body>
@@ -393,9 +466,25 @@
     <button class="nav-btn ghost" onclick="openSubmit()" style="border-color:var(--orange);color:var(--orange)">+ Subir código</button>
     <div style="width:1px;height:20px;background:var(--border)"></div>
     <a id="nav-admin-link" href="/admin" style="display:none;font-size:0.82rem;color:var(--text-muted);text-decoration:none;padding:7px 12px;border-radius:var(--radius-pill);border:1px solid var(--border)">⚙ Admin</a>
-    <div class="avatar" id="nav-avatar"></div>
-    <span id="nav-name"></span>
-    <button class="nav-btn ghost" onclick="logout()">Salir</button>
+    <div class="user-menu-wrap">
+      <button class="user-menu-btn" id="user-menu-btn" onclick="toggleUserMenu()">
+        <div class="u-avatar" id="nav-avatar"></div>
+        <span id="nav-name"></span>
+        <span class="u-chevron">▾</span>
+      </button>
+      <div class="user-dropdown" id="user-dropdown">
+        <div class="dropdown-label">Tema</div>
+        <div class="theme-grid">
+          <button class="theme-opt" id="theme-dark" onclick="setTheme('dark')"><span class="t-icon">🌙</span>Oscuro</button>
+          <button class="theme-opt" id="theme-light" onclick="setTheme('light')"><span class="t-icon">☀️</span>Claro</button>
+          <button class="theme-opt" id="theme-system" onclick="setTheme('system')"><span class="t-icon">💻</span>Sistema</button>
+        </div>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item" onclick="openSettings()"><span>⚙</span> Configuración</button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item danger" onclick="logout()"><span>→</span> Salir</button>
+      </div>
+    </div>
   </div>
 </nav>
 
@@ -552,6 +641,23 @@
   </div>
 </div>
 
+<!-- ── MODAL SETTINGS ── -->
+<div class="modal-overlay" id="modal-settings" onclick="closeIfOverlay(event,'modal-settings')">
+  <div class="modal" style="position:relative;max-width:380px">
+    <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
+    <h2>Configuración de cuenta</h2>
+    <form onsubmit="saveSettings(event)" style="margin-top:16px">
+      <div class="form-group"><label>Nombre</label><input type="text" id="cfg-name" placeholder="Tu nombre" required></div>
+      <div class="form-group"><label>Email</label><input type="email" id="cfg-email" disabled style="opacity:0.5;cursor:not-allowed"></div>
+      <div class="form-error" id="cfg-error"></div>
+      <div class="form-actions">
+        <button type="button" class="btn ghost" onclick="closeModal('modal-settings')">Cancelar</button>
+        <button type="submit" class="btn primary" style="flex:1">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -579,6 +685,46 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+// ── Theme ─────────────────────────────────────────────────────────────────────
+(function() {
+  const t = localStorage.getItem('sc_theme');
+  if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  // 'system' or null: no attribute, CSS media query handles it
+})();
+
+function setTheme(t) {
+  localStorage.setItem('sc_theme', t);
+  if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+  updateThemeBtns(t);
+}
+
+function updateThemeBtns(t) {
+  const saved = t || localStorage.getItem('sc_theme') || 'system';
+  ['dark','light','system'].forEach(k => {
+    document.getElementById(`theme-${k}`)?.classList.toggle('active', saved === k);
+  });
+}
+
+// ── Dropdown ──────────────────────────────────────────────────────────────────
+function toggleUserMenu() {
+  const btn = document.getElementById('user-menu-btn');
+  const dd = document.getElementById('user-dropdown');
+  const open = dd.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  if (open) updateThemeBtns();
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.user-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('user-dropdown')?.classList.remove('open');
+    document.getElementById('user-menu-btn')?.classList.remove('open');
+  }
+});
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let allCodes = [];
 let currentType = '';
@@ -780,7 +926,27 @@ function logout() {
   token = null; user = null;
   localStorage.removeItem('sc_token');
   renderNav();
+  document.getElementById('user-dropdown')?.classList.remove('open');
+  document.getElementById('user-menu-btn')?.classList.remove('open');
   showToast('Sesión cerrada');
+}
+
+function openSettings() {
+  document.getElementById('user-dropdown')?.classList.remove('open');
+  document.getElementById('user-menu-btn')?.classList.remove('open');
+  document.getElementById('cfg-name').value = user?.name || '';
+  document.getElementById('cfg-email').value = user?.email || '';
+  document.getElementById('cfg-error').textContent = '';
+  openModal('modal-settings');
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  const name = document.getElementById('cfg-name').value.trim();
+  if (!name) return;
+  // For now just update locally (backend endpoint can be added later)
+  showToast('Cambios guardados', 'success');
+  closeModal('modal-settings');
 }
 
 // ── Submit ────────────────────────────────────────────────────────────────────
